@@ -17,6 +17,7 @@
 
 - Pendampingan: rute yang sudah dilewati menghilang, jalan kaki dimulai dari posisimu sekarang, mode PiP dengan peta (menutup PiP menutup aplikasi), senter arah hadap, lokasi tidak hilang saat kartu diketuk, pop-up "GPS belum aktif"
 - Riwayat dengan "Lokasi saya" memakai posisi GPS sekarang
+- Peta pendampingan mengikuti posisimu (zoom langsung ke posisimu), bisa digeser + tombol Pusatkan; senter berputar mulus; menutup aplikasi menghentikan pendampingan; perbaikan peta setelah PiP
 - Tombol **Bersihkan** di hasil pencarian untuk kembali ke beranda; **Tampilkan semua opsi** tidak lagi melompat ke atas
 - Hasil rute tanpa pemborosan: rute sama dengan halte lebih jauh/lebih lama dibuang, rute bolak-balik dibuang
 - Warna pembeda untuk rute berturut-turut yang warnanya sama; teks pindah di halte yang sama menyebut rute berikutnya
@@ -31,6 +32,7 @@
 
 - Guidance: passed route disappears, walk starts from your current location, picture-in-picture with map (closing it closes the app), compass beam, location dot kept, "GPS is off" prompt
 - History entries with "My location" use your current GPS position
+- Guidance map follows you (zooms to you on start), free panning with a Recenter button; smooth 360° compass beam; closing the app stops guidance; map fixes after PiP
 - **Clear** button on results; **Show all options** keeps your scroll position
 - No wasteful results: same-route options with worse stops and back-and-forth routes removed
 - Distinct colors for consecutive same-colored routes; clearer same-stop transfers; route list grouped cleanly

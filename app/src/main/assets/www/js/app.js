@@ -145,7 +145,7 @@
     ROUTE_SRC = { kind: "gtfs", date: g.date, count: g.lines.length };
   })();
   var planner = new E.Planner(DATA);
-  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; } };   // untuk pengujian
+  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; }, tripZoom: function () { return tripMap ? tripMap.getZoom() : -1; } };   // untuk pengujian
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var NATIVE = window.LumiNative || null;
@@ -375,7 +375,7 @@
     S.guide = { it: it, title: S.from.name + " → " + S.to.name, names: spec.split("\n").map(function (r) { return r.split("\t")[4]; }) };
     store("guide", { title: S.guide.title, names: S.guide.names });
     NATIVE.startGuide(spec, "Lumi · " + S.guide.title);
-    GT.trip.fitted = false; compass(true);
+    GT.trip.fitted = false; GT.trip.zoomed = false; GT.trip.follow = true; compass(true);
     renderGuide({ phase: "walk", next: 0, cursor: -1, title: "Mencari posisi GPS…", text: "Kamu akan diberi tahu sebelum harus turun.", stopsLeft: -1, metersLeft: -1 });
     if ($("#btnGuide")) $("#btnGuide").innerHTML = ICO_NAV + "Pendampingan sedang berjalan";
   }
@@ -384,7 +384,7 @@
     S.guide = null; store("guide", null);
     var g = $("#guide"); if (g) g.remove();
     $("#app").classList.remove("guiding");
-    S.guideSt = null; compass(false);
+    S.guideSt = null; compass(false); if ($("#btnRecenter")) recenterBtn(false);
     [GT.trip, GT.pip].forEach(function (T) { if (T.layer) { T.layer.remove(); T.layer = null; } T.me = null; });
     if (tripMap && tripLayer && !tripMap.hasLayer(tripLayer)) tripLayer.addTo(tripMap);
     $$(".st-body.is-now").forEach(function (b) { b.classList.remove("is-now"); });
@@ -396,7 +396,37 @@
    * rencana), mis. rencana A→B tapi kamu sedang di C: garis jalan kaki C → halte naik.
    */
   // Dua tempat menggambar: peta detail perjalanan, dan peta kecil di kartu pendampingan (mode PiP).
-  var GT = { trip: { layer: null, fitted: false }, pip: { map: null, layer: null } };
+  var GT = { trip: { layer: null, fitted: false, follow: true }, pip: { map: null, layer: null } };
+  /* Sudut kompas dibuat "bersambung" (359° → 1° = +2°, bukan −358°) agar senter tidak memutar jauh. */
+  function unwrapHeading(deg) {
+    if (S.hU == null) S.hU = deg;
+    else S.hU += ((deg - S.hU) % 360 + 540) % 360 - 180;
+    return S.hU;
+  }
+  /* Tombol "pusatkan" di peta perjalanan: muncul saat peta digeser sendiri selama pendampingan. */
+  function recenterBtn(show) {
+    var b = $("#btnRecenter");
+    if (!b) {
+      b = document.createElement("button"); b.id = "btnRecenter"; b.className = "map-recenter"; b.type = "button";
+      b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2.5 4.5 20.5 12 16.5l7.5 4z" fill="currentColor"/></svg>Pusatkan';
+      $("#tripMap").appendChild(b);
+      L.DomEvent.disableClickPropagation(b);
+      b.addEventListener("click", function () {
+        GT.trip.follow = true; recenterBtn(false);
+        var st = S.guideSt || {}, me = st.lat ? [st.lat, st.lon] : S.myPos;
+        if (me && tripMap) { GT.trip.prog = true; tripMap.setView(me, Math.max(tripMap.getZoom(), 17)); GT.trip.prog = false; }
+      });
+    }
+    b.hidden = !show;
+  }
+  function hookTripMapFollow() {
+    if (!tripMap || tripMap._lumiFollowHook) return;
+    tripMap._lumiFollowHook = true;
+    tripMap.on("dragstart", function () {
+      if (!S.guide || S.openTrip !== S.guide.it) return;
+      GT.trip.follow = false; recenterBtn(true);
+    });
+  }
   function paintGuideMap(st) {
     S.guideSt = st || S.guideSt;
     if (tripMap && S.guide && S.guide.it && S.openTrip === S.guide.it) {
@@ -407,7 +437,7 @@
   }
   /* Ikon posisiku: titik biru + "senter" (kerucut arah hadap HP dari kompas). */
   function meIcon() {
-    var h = S.heading;
+    var h = S.heading == null ? null : S.hU;
     return L.divIcon({ className: "", iconSize: [18, 18], iconAnchor: [9, 9],
       html: '<div class="lm-mew">' + (h == null ? "" : '<i class="lm-beam" style="transform:rotate(' + Math.round(h) + 'deg)"></i>') + '<div class="lm-me"></div></div>' });
   }
@@ -447,19 +477,29 @@
       if (S.to && S.to.p) L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(T.layer);
     }
     if (me) T.me = L.marker(me, { icon: meIcon(), zIndexOffset: 1000, interactive: false }).addTo(T.layer); else T.me = null;
-    if (follow) { if (me) map.setView(me, Math.max(map.getZoom() || 0, 17), { animate: false }); return; }
-    if (!T.fitted) { T.fitted = true; try { map.fitBounds(T.layer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
-    else if (me && !map.getBounds().contains(me)) map.panTo(me);
+    if (follow) {
+      if (me) map.setView(me, Math.max(map.getZoom() || 0, 17), { animate: false });
+      else { try { map.fitBounds(T.layer.getBounds(), { padding: [16, 16], maxZoom: 17 }); } catch (e) { } }
+      return;
+    }
+    // Peta perjalanan: seperti Google Maps — mengikuti posisimu (mulai langsung zoom ke posisimu);
+    // bila peta digeser sendiri, berhenti mengikuti sampai "Pusatkan" ditekan.
+    hookTripMapFollow();
+    if (T.follow && me) {
+      T.prog = true;
+      if (!T.zoomed) map.setView(me, 17, { animate: false }); else map.panTo(me, { animate: true, duration: 0.6 });
+      T.prog = false; T.fitted = true; T.zoomed = true; recenterBtn(false);
+    } else if (!T.fitted && !me) { T.fitted = true; try { map.fitBounds(T.layer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
   }
   /* Arah hadap dari kompas HP (MainActivity) → putar "senter" tanpa menggambar ulang peta. */
   window.__lumiHeading = function (deg) {
-    S.heading = deg;
+    S.heading = deg; var u = unwrapHeading(deg);
     [GT.trip, GT.pip].forEach(function (T) {
       if (!T.me) return;
       var el = T.me.getElement && T.me.getElement(); if (!el) return;
       var b = el.querySelector(".lm-beam");
       if (!b) { T.me.setIcon(meIcon()); return; }
-      b.style.transform = "rotate(" + Math.round(deg) + "deg)";
+      b.style.transform = "rotate(" + Math.round(u) + "deg)";
     });
   };
   function compass(on) { try { NATIVE && NATIVE.compass && NATIVE.compass(!!on); } catch (e) { } }
@@ -501,12 +541,21 @@
   }
   var ICO_PIP = '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor"/></svg>';
   /* Mode PiP (jendela kecil) saat pendampingan: hanya kartu pendampingan yang tampil. */
+  function refitMaps() {
+    allMaps.forEach(function (m) { try { m.invalidateSize(false); } catch (e) { } });
+    paintGuideMap(S.guideSt);
+  }
   window.__lumiPip = function (on) {
     document.documentElement.classList.toggle("pip", !!on);
-    if (!on || !$("#guideMap")) return;
-    if (!GT.pip.map) GT.pip.map = makeMap($("#guideMap"));
-    setTimeout(function () { GT.pip.map.invalidateSize(); paintGuideMap(S.guideSt); }, 80);
+    if (on && $("#guideMap") && !GT.pip.map) {
+      GT.pip.map = makeMap($("#guideMap"));
+      GT.pip.map.dragging.disable(); GT.pip.map.touchZoom.disable(); GT.pip.map.doubleClickZoom.disable();
+    }
+    // Ukuran jendela berubah bertahap saat masuk/keluar PiP: ukur ulang semua peta beberapa kali.
+    [60, 250, 600, 1200].forEach(function (t) { setTimeout(refitMaps, t); });
   };
+  var rsT;
+  window.addEventListener("resize", function () { clearTimeout(rsT); rsT = setTimeout(refitMaps, 120); });
   window.__lumiGuide = function (st) {
     if (!st) return;
     if (st.stopped) { stopGuide(); return; }
@@ -1073,7 +1122,8 @@
       L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(tripLayer);
       tripMap.fitBounds(tripLayer.getBounds(), { padding: [30, 30] });
       if (GT.trip.layer) { GT.trip.layer.remove(); GT.trip.layer = null; GT.trip.me = null; }
-      if (S.guide && S.guide.it === it) { GT.trip.fitted = false; paintGuideMap(S.guideSt); }
+      if (S.guide && S.guide.it === it) { GT.trip.fitted = false; GT.trip.zoomed = false; GT.trip.follow = true; paintGuideMap(S.guideSt); }
+      else recenterBtn(false);
     }, 60);
 
     var dep = S.dep || new Date(), t = 0;

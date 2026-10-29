@@ -258,6 +258,8 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         NavService.listener = null;
         compassOn(false);
+        // Aplikasi ditutup (bukan sekadar diputar/dibuat ulang) → pendampingan ikut berhenti.
+        if (isFinishing()) NavService.stop(this);
         pool.shutdownNow();
         if (web != null) web.destroy();
         super.onDestroy();

@@ -652,3 +652,7 @@ html.pip .guide-count div { display: flex; align-items: baseline; gap: 5px; padd
 html.pip .guide-count b { font-size: 16px; }
 html.pip .guide-count span { font-size: 10px; }
 html.pip #guide { top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; }
+.map-recenter { position: absolute; z-index: 800; right: 12px; top: 12px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-radius: 999px; background: #fff; color: var(--ink); font-weight: 800; font-size: 13.5px; box-shadow: 0 6px 18px rgba(19,35,75,.22); }
+.map-recenter svg { width: 16px; height: 16px; }
+.map-recenter[hidden] { display: none; }

@@ -181,5 +181,14 @@ public class NavService extends Service {
         super.onDestroy();
     }
 
+    /** Aplikasi ditutup dari daftar aplikasi terbaru → pendampingan ikut berhenti. */
+    @Override
+    public void onTaskRemoved(Intent rootIntent) {
+        tracker = null; lastJson = null;
+        stopForeground(true);
+        stopSelf();
+        super.onTaskRemoved(rootIntent);
+    }
+
     @Override public IBinder onBind(Intent intent) { return null; }
 }
