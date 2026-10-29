@@ -84,7 +84,8 @@
 
 **🧭 GPS guidance**
 - The map shows only what's left of the trip: passed lines and stops disappear; the first walk starts from where you are now
-- **Picture-in-picture**: the guidance card stays visible in a small window while you use other apps
+- **Picture-in-picture**: a small live map plus instructions stay visible while you use other apps; closing the window closes the app
+- **Compass beam**: your location dot shows which way your phone is facing
 - A prompt to turn on GPS when phone location is off
 
 **🎯 Result filters**

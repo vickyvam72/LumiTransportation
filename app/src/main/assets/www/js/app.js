@@ -375,7 +375,7 @@
     S.guide = { it: it, title: S.from.name + " → " + S.to.name, names: spec.split("\n").map(function (r) { return r.split("\t")[4]; }) };
     store("guide", { title: S.guide.title, names: S.guide.names });
     NATIVE.startGuide(spec, "Lumi · " + S.guide.title);
-    guideFitted = false;
+    GT.trip.fitted = false; compass(true);
     renderGuide({ phase: "walk", next: 0, cursor: -1, title: "Mencari posisi GPS…", text: "Kamu akan diberi tahu sebelum harus turun.", stopsLeft: -1, metersLeft: -1 });
     if ($("#btnGuide")) $("#btnGuide").innerHTML = ICO_NAV + "Pendampingan sedang berjalan";
   }
@@ -384,61 +384,90 @@
     S.guide = null; store("guide", null);
     var g = $("#guide"); if (g) g.remove();
     $("#app").classList.remove("guiding");
-    S.guideSt = null;
-    if (guideLayer) { guideLayer.remove(); guideLayer = null; }
+    S.guideSt = null; compass(false);
+    [GT.trip, GT.pip].forEach(function (T) { if (T.layer) { T.layer.remove(); T.layer = null; } T.me = null; });
     if (tripMap && tripLayer && !tripMap.hasLayer(tripLayer)) tripLayer.addTo(tripMap);
     $$(".st-body.is-now").forEach(function (b) { b.classList.remove("is-now"); });
   }
-  var alertTimer = null, guideLayer = null, guideFitted = false;
+  var alertTimer = null;
   /*
    * Peta saat pendampingan: hanya sisa perjalanan yang digambar. Garis & titik halte yang sudah dilewati
    * hilang seiring perjalanan, dan langkah pertama selalu dimulai dari posisimu sekarang (bukan titik asal
    * rencana), mis. rencana A→B tapi kamu sedang di C: garis jalan kaki C → halte naik.
    */
+  // Dua tempat menggambar: peta detail perjalanan, dan peta kecil di kartu pendampingan (mode PiP).
+  var GT = { trip: { layer: null, fitted: false }, pip: { map: null, layer: null } };
   function paintGuideMap(st) {
-    if (!tripMap || !S.guide || !S.guide.it || S.openTrip !== S.guide.it) return;
-    st = st || {};
-    var it = S.guide.it, rides = it.legs.filter(function (l) { return l.type === "ride"; });
-    if (!rides.length) return;
-    if (tripLayer && tripMap.hasLayer(tripLayer)) tripMap.removeLayer(tripLayer);
-    if (guideLayer) guideLayer.remove();
-    guideLayer = L.featureGroup().addTo(tripMap);
-    var me = st.lat ? [st.lat, st.lon] : S.myPos || null;
-    var off = [], n = 0;
-    rides.forEach(function (l) { off.push(n); n += l.stops.length; });
-    var dIdx = n, cur = st.cursor == null ? -1 : st.cursor, nxt = st.next == null ? 0 : st.next, phase = st.phase || "walk";
-    function legOf(i) { for (var q = rides.length - 1; q >= 0; q--) if (i >= off[q]) return q; return 0; }
-    function walk(a, b) { if (a && b) L.polyline([a, b], { color: "#6B7891", weight: 4, dashArray: "2 7", lineCap: "round" }).addTo(guideLayer); }
-    var riding = (phase === "ride" || phase === "wait") && cur >= 0 && cur < dIdx;
-    var startLeg = rides.length, startK = 0;
-    if (phase === "done") startLeg = rides.length;
-    else if (riding) { startLeg = legOf(cur); startK = cur - off[startLeg]; }
-    else {
-      if (nxt < dIdx) { startLeg = legOf(nxt); startK = 0; }
-      walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p);
+    S.guideSt = st || S.guideSt;
+    if (tripMap && S.guide && S.guide.it && S.openTrip === S.guide.it) {
+      if (tripLayer && tripMap.hasLayer(tripLayer)) tripMap.removeLayer(tripLayer);
+      drawGuide(tripMap, GT.trip, false);
     }
-    for (var li = startLeg; li < rides.length; li++) {
-      var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride";
-      var fromP = onBus && me ? me : l.stops[k0].p;
-      var pts = shapeSlice(l.line, l.dirIndex, fromP, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
-      if (onBus && me) pts = [me].concat(pts);
-      L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(guideLayer);
-      L.polyline(pts, { color: lc(l), weight: 6 }).addTo(guideLayer);
-      for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
-        var mk = L.marker(l.stops[k].p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(guideLayer);
-        if (k === k0 || k === l.stops.length - 1) mk.bindTooltip(l.stops[k].n, { className: "lm-tip", direction: "top", offset: [0, -6] });
-      }
-      walk(l.stops[l.stops.length - 1].p, li + 1 < rides.length ? rides[li + 1].stops[0].p : S.to.p);
-    }
-    L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(guideLayer);
-    if (me) L.marker(me, { icon: L.divIcon({ className: "", html: '<div class="lm-me"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), zIndexOffset: 1000 }).addTo(guideLayer);
-    if (!guideFitted) { guideFitted = true; try { tripMap.fitBounds(guideLayer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
-    else if (me && !tripMap.getBounds().contains(me)) tripMap.panTo(me);
+    if (document.documentElement.classList.contains("pip") && GT.pip.map) drawGuide(GT.pip.map, GT.pip, true);
   }
+  /* Ikon posisiku: titik biru + "senter" (kerucut arah hadap HP dari kompas). */
+  function meIcon() {
+    var h = S.heading;
+    return L.divIcon({ className: "", iconSize: [18, 18], iconAnchor: [9, 9],
+      html: '<div class="lm-mew">' + (h == null ? "" : '<i class="lm-beam" style="transform:rotate(' + Math.round(h) + 'deg)"></i>') + '<div class="lm-me"></div></div>' });
+  }
+  function drawGuide(map, T, follow) {
+    var st = S.guideSt || {};
+    if (T.layer) T.layer.remove();
+    T.layer = L.featureGroup().addTo(map);
+    var it = S.guide && S.guide.it, me = st.lat ? [st.lat, st.lon] : S.myPos || null;
+    var rides = it ? it.legs.filter(function (l) { return l.type === "ride"; }) : [];
+    function walk(a, b) { if (a && b) L.polyline([a, b], { color: "#6B7891", weight: 4, dashArray: "2 7", lineCap: "round" }).addTo(T.layer); }
+    if (rides.length) {
+      var off = [], n = 0;
+      rides.forEach(function (l) { off.push(n); n += l.stops.length; });
+      var dIdx = n, cur = st.cursor == null ? -1 : st.cursor, nxt = st.next == null ? 0 : st.next, phase = st.phase || "walk";
+      var legOf = function (i) { for (var q = rides.length - 1; q >= 0; q--) if (i >= off[q]) return q; return 0; };
+      var riding = (phase === "ride" || phase === "wait") && cur >= 0 && cur < dIdx;
+      var startLeg = rides.length, startK = 0;
+      if (phase === "done") startLeg = rides.length;
+      else if (riding) { startLeg = legOf(cur); startK = cur - off[startLeg]; }
+      else {
+        if (nxt < dIdx) { startLeg = legOf(nxt); startK = 0; }
+        walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p);
+      }
+      for (var li = startLeg; li < rides.length; li++) {
+        var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride";
+        var fromP = onBus && me ? me : l.stops[k0].p;
+        var pts = shapeSlice(l.line, l.dirIndex, fromP, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
+        if (onBus && me) pts = [me].concat(pts);
+        L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(T.layer);
+        L.polyline(pts, { color: lc(l), weight: 6 }).addTo(T.layer);
+        for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
+          var mk = L.marker(l.stops[k].p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(T.layer);
+          if (!follow && (k === k0 || k === l.stops.length - 1)) mk.bindTooltip(l.stops[k].n, { className: "lm-tip", direction: "top", offset: [0, -6] });
+        }
+        walk(l.stops[l.stops.length - 1].p, li + 1 < rides.length ? rides[li + 1].stops[0].p : S.to.p);
+      }
+      if (S.to && S.to.p) L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(T.layer);
+    }
+    if (me) T.me = L.marker(me, { icon: meIcon(), zIndexOffset: 1000, interactive: false }).addTo(T.layer); else T.me = null;
+    if (follow) { if (me) map.setView(me, Math.max(map.getZoom() || 0, 17), { animate: false }); return; }
+    if (!T.fitted) { T.fitted = true; try { map.fitBounds(T.layer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
+    else if (me && !map.getBounds().contains(me)) map.panTo(me);
+  }
+  /* Arah hadap dari kompas HP (MainActivity) → putar "senter" tanpa menggambar ulang peta. */
+  window.__lumiHeading = function (deg) {
+    S.heading = deg;
+    [GT.trip, GT.pip].forEach(function (T) {
+      if (!T.me) return;
+      var el = T.me.getElement && T.me.getElement(); if (!el) return;
+      var b = el.querySelector(".lm-beam");
+      if (!b) { T.me.setIcon(meIcon()); return; }
+      b.style.transform = "rotate(" + Math.round(deg) + "deg)";
+    });
+  };
+  function compass(on) { try { NATIVE && NATIVE.compass && NATIVE.compass(!!on); } catch (e) { } }
   function renderGuide(st) {
     var g = $("#guide");
     if (!g) {
       g = document.createElement("div"); g.id = "guide"; g.className = "guide"; g.setAttribute("role", "status"); g.setAttribute("aria-live", "polite");
+      g.innerHTML = '<div class="guide-map" id="guideMap"></div><div class="guide-body"></div>';
       $("#app").appendChild(g);
       g.addEventListener("click", function (e) {
         if (e.target.closest(".guide-stop")) { e.stopPropagation(); stopGuide(); toast("Pendampingan dihentikan"); return; }
@@ -451,7 +480,7 @@
     if (st.stopsLeft >= 0) counts += '<div><b class="tnum">' + st.stopsLeft + "</b><span>pemberhentian lagi</span></div>";
     if (st.metersLeft >= 0) counts += '<div><b class="tnum">' + (st.metersLeft < 1000 ? Math.round(st.metersLeft / 10) * 10 + " m" : (st.metersLeft / 1000).toFixed(1).replace(".", ",") + " km") + "</b><span>jalan kaki lagi</span></div>";
     var pipBtn = !st.done && NATIVE && NATIVE.pipOk && NATIVE.pipOk() ? '<button class="guide-pip" type="button" aria-label="Mode jendela kecil (PiP)">' + ICO_PIP + "PiP</button>" : "";
-    g.innerHTML = '<div class="guide-top"><span class="guide-live">' + (st.done ? "SELESAI" : "PENDAMPINGAN") + "</span>" + pipBtn + '<button class="guide-stop" type="button">' + (st.done ? "Tutup" : "Berhenti") + "</button></div>" +
+    $(".guide-body", g).innerHTML = '<div class="guide-top"><span class="guide-live">' + (st.done ? "SELESAI" : "PENDAMPINGAN") + "</span>" + pipBtn + '<button class="guide-stop" type="button">' + (st.done ? "Tutup" : "Berhenti") + "</button></div>" +
       '<div class="guide-main">' + esc(st.alert || st.title) + "</div>" + '<div class="guide-sub">' + esc(st.alert ? st.title + " · " + st.text : st.text) + "</div>" +
       (counts && !st.done ? '<div class="guide-count">' + counts + "</div>" : "");
     if (st.alert) {
@@ -462,6 +491,7 @@
     // posisi + sisa rute di peta perjalanan
     if (st.lat || st.cursor != null) { var keep = S.guideSt; S.guideSt = st.lat || !keep ? st : Object.assign({}, st, { lat: keep.lat, lon: keep.lon }); }
     paintGuideMap(S.guideSt);
+    if (st.done) compass(false);
     if (S.guide && S.guide.names && st.cursor >= 0) {
       var nm = S.guide.names[st.cursor];
       $$(".st-body.is-now").forEach(function (b) { b.classList.remove("is-now"); });
@@ -471,7 +501,12 @@
   }
   var ICO_PIP = '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor"/></svg>';
   /* Mode PiP (jendela kecil) saat pendampingan: hanya kartu pendampingan yang tampil. */
-  window.__lumiPip = function (on) { document.documentElement.classList.toggle("pip", !!on); };
+  window.__lumiPip = function (on) {
+    document.documentElement.classList.toggle("pip", !!on);
+    if (!on || !$("#guideMap")) return;
+    if (!GT.pip.map) GT.pip.map = makeMap($("#guideMap"));
+    setTimeout(function () { GT.pip.map.invalidateSize(); paintGuideMap(S.guideSt); }, 80);
+  };
   window.__lumiGuide = function (st) {
     if (!st) return;
     if (st.stopped) { stopGuide(); return; }
@@ -671,7 +706,7 @@
     (which === "from" ? inFrom : inTo).value = "Mencari lokasi…";
     locate().then(function (o) {
       var p = [o.lat, o.lon]; S.myPos = p;
-      setPoint(which, { name: "Lokasi saya", p: p });
+      setPoint(which, { name: "Lokasi saya", p: p, me: true });
       if (S.from && S.to) runPlan(); else if (which === "from") { S.field = "to"; inTo.focus(); }
     }).catch(function (e) {
       setPoint(which, null); toast(e.message || "Lokasi tidak tersedia");
@@ -700,7 +735,18 @@
         esc(r.from.name) + '</span> <span class="r-b">ke</span> <span class="r-a">' + esc(r.to.name) + "</span></span></button>";
     }).join("");
     $$("#recent button").forEach(function (b) {
-      b.addEventListener("click", function () { var r = rec[+b.dataset.i]; setPoint("from", r.from); setPoint("to", r.to); runPlan(); });
+      b.addEventListener("click", function () {
+        var r = rec[+b.dataset.i];
+        // "Lokasi saya" di riwayat = posisi GPS SEKARANG, bukan koordinat lama saat pencarian disimpan.
+        function isMe(pt) { return pt && (pt.me || pt.name === "Lokasi saya"); }
+        if (!isMe(r.from) && !isMe(r.to)) { setPoint("from", r.from); setPoint("to", r.to); runPlan(); return; }
+        b.classList.add("is-busy"); toast("Mencari lokasimu…");
+        locate().then(function (o) {
+          var me = { name: "Lokasi saya", p: [o.lat, o.lon], me: true }; S.myPos = me.p;
+          setPoint("from", isMe(r.from) ? me : r.from); setPoint("to", isMe(r.to) ? me : r.to); runPlan();
+        }).catch(function (e) { toast(e.message || "Lokasi tidak tersedia"); })
+          .then(function () { b.classList.remove("is-busy"); });
+      });
     });
     var groups = [
       ["Transjakarta", "#C1272D", "BRT, non-BRT, Royaltrans", "TJ"],
@@ -1026,8 +1072,8 @@
       L.marker(S.from.p, { icon: dotIcon("lm-end") }).addTo(tripLayer);
       L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(tripLayer);
       tripMap.fitBounds(tripLayer.getBounds(), { padding: [30, 30] });
-      if (guideLayer) { guideLayer.remove(); guideLayer = null; }
-      if (S.guide && S.guide.it === it) { guideFitted = false; paintGuideMap(S.guideSt); }
+      if (GT.trip.layer) { GT.trip.layer.remove(); GT.trip.layer = null; GT.trip.me = null; }
+      if (S.guide && S.guide.it === it) { GT.trip.fitted = false; paintGuideMap(S.guideSt); }
     }, 60);
 
     var dep = S.dep || new Date(), t = 0;
@@ -1776,7 +1822,7 @@
   // Pendampingan yang masih berjalan (mis. setelah aplikasi dibuka ulang dari notifikasi).
   try {
     var gs = NATIVE && NATIVE.guideState && NATIVE.guideState();
-    if (gs) { var sg0 = store("guide"); S.guide = sg0 ? { title: sg0.title, names: sg0.names } : { names: [] }; var st0 = JSON.parse(gs); renderGuide(st0.title ? st0 : { title: "Pendampingan berjalan", text: "Menunggu posisi GPS…", stopsLeft: -1, metersLeft: -1 }); }
+    if (gs) { compass(true); var sg0 = store("guide"); S.guide = sg0 ? { title: sg0.title, names: sg0.names } : { names: [] }; var st0 = JSON.parse(gs); renderGuide(st0.title ? st0 : { title: "Pendampingan berjalan", text: "Menunggu posisi GPS…", stopsLeft: -1, metersLeft: -1 }); }
     else store("guide", null);
   } catch (e) { }
   try { var op = NATIVE && NATIVE.takeOpen && NATIVE.takeOpen(); if (op) window.lumiOpen(op); } catch (e) { }

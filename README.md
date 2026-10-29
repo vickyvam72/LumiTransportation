@@ -84,7 +84,8 @@
 
 **🧭 Pendampingan GPS**
 - Peta hanya menampilkan sisa perjalanan: garis dan halte yang sudah dilewati menghilang; langkah pertama dimulai dari posisimu sekarang
-- **Mode PiP**: kartu pendampingan tetap terlihat dalam jendela kecil saat kamu membuka aplikasi lain
+- **Mode PiP**: peta kecil + instruksi tetap terlihat dalam jendela kecil saat kamu membuka aplikasi lain; menutup jendelanya menutup aplikasi
+- **Senter arah hadap**: titik posisimu menunjukkan ke mana HP menghadap
 - Pop-up untuk menyalakan GPS bila Lokasi HP masih mati
 
 **🎯 Filter hasil**

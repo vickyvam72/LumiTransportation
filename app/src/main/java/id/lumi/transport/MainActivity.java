@@ -147,6 +147,7 @@ public class MainActivity extends Activity {
         super.onResume();
         if (pageReady) js("window.__lumiPerm && __lumiPerm(); window.__lumiResume && __lumiResume()");   // kembali dari pengaturan HP
         updatePip(NavService.tracker != null);
+        if (NavService.tracker != null) compassOn(true);
     }
 
     /* ---- mode PiP (jendela kecil) selama pendampingan ---- */
@@ -174,10 +175,55 @@ public class MainActivity extends Activity {
         // Android 8–11: tombol Home saat pendampingan → jendela kecil.
         if (Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT < 31 && NavService.tracker != null) enterPip();
     }
+    private long pipExitAt;
     @Override
     public void onPictureInPictureModeChanged(boolean inPip, android.content.res.Configuration cfg) {
         super.onPictureInPictureModeChanged(inPip, cfg);
+        if (!inPip) pipExitAt = System.currentTimeMillis();
         js("window.__lumiPip && __lumiPip(" + inPip + ")");
+    }
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // Jendela PiP ditutup (tombol ×): keluar PiP lalu langsung berhenti, bukan kembali ke layar penuh.
+        // Saat layar mati dalam PiP, aplikasi masih dalam mode PiP, jadi tidak ikut tertutup.
+        if (Build.VERSION.SDK_INT >= 26 && !isChangingConfigurations() && !isInPictureInPictureMode()
+                && System.currentTimeMillis() - pipExitAt < 2000) {
+            NavService.stop(this);
+            compassOn(false);
+            finishAndRemoveTask();
+            return;
+        }
+        // Tidak terlihat (bukan PiP): kompas dimatikan agar hemat baterai.
+        if (Build.VERSION.SDK_INT < 24 || !isInPictureInPictureMode()) compassOn(false);
+    }
+
+    /* ---- kompas: arah hadap HP untuk "senter" di titik posisiku ---- */
+    private android.hardware.SensorManager sm;
+    private android.hardware.SensorEventListener compassL;
+    private float lastHeading = -999; private long lastHeadingAt;
+    void compassOn(boolean on) {
+        if (sm == null) sm = (android.hardware.SensorManager) getSystemService(SENSOR_SERVICE);
+        if (sm == null) return;
+        if (!on) { if (compassL != null) sm.unregisterListener(compassL); compassL = null; return; }
+        if (compassL != null) return;
+        android.hardware.Sensor rv = sm.getDefaultSensor(android.hardware.Sensor.TYPE_ROTATION_VECTOR);
+        if (rv == null) return;
+        final float[] R = new float[9], o = new float[3];
+        compassL = new android.hardware.SensorEventListener() {
+            @Override public void onSensorChanged(android.hardware.SensorEvent e) {
+                android.hardware.SensorManager.getRotationMatrixFromVector(R, e.values);
+                android.hardware.SensorManager.getOrientation(R, o);
+                float deg = (float) ((Math.toDegrees(o[0]) + 360) % 360);
+                long now = System.currentTimeMillis();
+                float d = Math.abs(((deg - lastHeading + 540) % 360) - 180);
+                if (d < 3 || now - lastHeadingAt < 120) return;
+                lastHeading = deg; lastHeadingAt = now;
+                js("window.__lumiHeading && __lumiHeading(" + Math.round(deg) + ")");
+            }
+            @Override public void onAccuracyChanged(android.hardware.Sensor s, int a) { }
+        };
+        sm.registerListener(compassL, rv, android.hardware.SensorManager.SENSOR_DELAY_UI);
     }
 
     private boolean hasLoc() {
@@ -211,6 +257,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         NavService.listener = null;
+        compassOn(false);
         pool.shutdownNow();
         if (web != null) web.destroy();
         super.onDestroy();
@@ -675,6 +722,12 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public boolean pipOk() { return pipSupported(); }
+
+        /** Nyalakan/matikan kompas (hanya selama pendampingan, hemat baterai). */
+        @JavascriptInterface
+        public void compass(final boolean on) {
+            main.post(new Runnable() { @Override public void run() { compassOn(on); }});
+        }
 
         @JavascriptInterface
         public void enterPip() {

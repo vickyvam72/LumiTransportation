@@ -631,3 +631,24 @@ html.pip .guide-count { margin-top: 6px; gap: 6px; }
 html.pip .guide-count div { padding: 4px 8px; border-radius: 10px; }
 html.pip .guide-count b { font-size: 22px; }
 html.pip .guide-count span { font-size: 10px; }
+
+/* ---- posisiku: titik + "senter" arah hadap ---- */
+.lm-mew { position: relative; width: 18px; height: 18px; }
+.lm-mew .lm-me { position: relative; z-index: 1; }
+.lm-beam { position: absolute; left: 50%; top: 50%; width: 76px; height: 76px; margin: -76px 0 0 -38px; transform-origin: 50% 100%;
+  background: radial-gradient(circle at 50% 100%, rgba(26,115,232,.55) 0, rgba(26,115,232,.28) 45%, rgba(26,115,232,0) 72%);
+  clip-path: polygon(50% 100%, 6% 0, 94% 0); pointer-events: none; transition: transform .25s linear; }
+
+/* ---- PiP: peta di atas, instruksi ringkas di bawah ---- */
+.guide-map { display: none; }
+html.pip #guide { padding: 0; justify-content: flex-start; }
+html.pip .guide-map { display: block; flex: 1 1 auto; min-height: 0; width: 100%; }
+html.pip .guide-map .leaflet-control-attribution { display: none; }
+html.pip .guide-body { flex: none; padding: 6px 10px 8px; background: var(--grad); }
+html.pip .guide-sub { display: none; }
+html.pip .guide-main { font-size: 13px; -webkit-line-clamp: 2; }
+html.pip .guide-count { margin-top: 4px; }
+html.pip .guide-count div { display: flex; align-items: baseline; gap: 5px; padding: 2px 8px; }
+html.pip .guide-count b { font-size: 16px; }
+html.pip .guide-count span { font-size: 10px; }
+html.pip #guide { top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; }
