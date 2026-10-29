@@ -1,5 +1,7 @@
 name: live-diag
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   diag:
     runs-on: ubuntu-latest
@@ -8,4 +10,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 20 }
       - run: npm i ws@8.18.0 --no-save --silent
-      - run: node tools/live_diag.js
+      - run: node tools/live_diag.js | tee data/live_diag.txt
+      - run: |
+          git config user.name "lumi-route-watch[bot]"
+          git config user.email "lumi-route-watch@users.noreply.github.com"
+          git add data/live_diag.txt && git commit -qm "data: diagnosa feed armada" && git pull -q --rebase origin main && git push origin HEAD:main
