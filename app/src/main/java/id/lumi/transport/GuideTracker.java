@@ -85,8 +85,10 @@ public class GuideTracker {
         int from = Math.max(0, cursor);
         for (int j = from; j < Math.min(cps.size(), from + 15); j++) {
             Cp c = cps.get(j);
-            double thr = c.kind == 'D' ? 70 : c.rail ? 220 : 110;
-            thr = Math.max(thr, Math.min(acc, 150));
+            // Halte naik dianggap "sampai" hanya bila benar-benar dekat (agar petunjuk jalan kaki tidak berhenti
+            // terlalu awal); halte yang dilewati bus boleh lebih longgar karena GPS di kendaraan kurang presisi.
+            double thr = c.kind == 'D' ? 50 : c.kind == 'B' ? (c.rail ? 150 : 45) : c.rail ? 220 : 110;
+            thr = Math.max(thr, Math.min(acc, c.kind == 'B' || c.kind == 'D' ? 60 : 150));
             double d = hav(lat, lon, c.lat, c.lon);
             if (d <= thr && d < bestD) { bestD = d; bestJ = j; }
         }

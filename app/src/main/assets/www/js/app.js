@@ -442,13 +442,52 @@
     return L.divIcon({ className: "", iconSize: [18, 18], iconAnchor: [9, 9],
       html: '<div class="lm-mew">' + (h == null ? "" : '<i class="lm-beam" style="transform:rotate(' + Math.round(h) + 'deg)"></i>') + '<div class="lm-me"></div></div>' });
   }
+  /*
+   * Rute jalan kaki lewat jalan sebenarnya (OSRM pejalan kaki, routing.openstreetmap.de), digambar sebagai
+   * titik-titik biru seperti Google Maps. Bila tidak ada jawaban / rutenya memutar tidak wajar → garis lurus.
+   */
+  var FOOT = {}, LIVEW = null;
+  function footUrl(a, b) { return "https://routing.openstreetmap.de/routed-foot/route/v1/driving/" + a[1] + "," + a[0] + ";" + b[1] + "," + b[0] + "?overview=full&geometries=geojson"; }
+  function footFetch(a, b, done) {
+    http(footUrl(a, b), 9000).then(function (j) {
+      var r = j && j.routes && j.routes[0], straight = E.hav(a, b);
+      if (!r || !r.geometry || r.distance / 1000 > Math.max(straight * 2.6, straight + 0.6)) return done(null);
+      done(r.geometry.coordinates.map(function (c) { return [c[1], c[0]]; }));
+    }).catch(function () { done(null); });
+  }
+  /* Ruas jalan kaki tetap (pindah antarhalte, halte → tujuan): diambil sekali lalu disimpan. */
+  function footPath(a, b) {
+    var k = a[0].toFixed(5) + "," + a[1].toFixed(5) + ";" + b[0].toFixed(5) + "," + b[1].toFixed(5), c = FOOT[k];
+    if (c) return c.pts;
+    FOOT[k] = { pts: null };
+    footFetch(a, b, function (pts) { if (pts) { FOOT[k].pts = pts; paintGuideMap(S.guideSt); } });
+    return null;
+  }
+  /* Ruas dari posisiku ke halte berikutnya: diperbarui bila sudah bergeser >35 m (paling cepat tiap 12 dtk). */
+  function liveFootPath(me, tgt) {
+    var tk = tgt[0].toFixed(5) + "," + tgt[1].toFixed(5), now = Date.now();
+    if (LIVEW && LIVEW.tk === tk && (E.hav(me, LIVEW.from) < 0.035 || LIVEW.busy || now - LIVEW.at < 12000)) return LIVEW.pts;
+    var keep = LIVEW && LIVEW.tk === tk ? LIVEW.pts : null;
+    LIVEW = { tk: tk, from: me, at: now, pts: keep, busy: true };
+    var mine = LIVEW;
+    footFetch(me, tgt, function (pts) { mine.busy = false; if (pts && LIVEW === mine) { mine.pts = pts; paintGuideMap(S.guideSt); } });
+    return keep;
+  }
+  function drawWalk(layer, a, b, live) {
+    if (!a || !b) return;
+    if (E.hav(a, b) < 0.015) return;
+    var pts = live ? liveFootPath(a, b) : footPath(a, b);
+    var line = pts && pts.length > 1 ? [a].concat(pts, [b]) : [a, b];
+    L.polyline(line, { color: "#fff", weight: 9, opacity: .85, dashArray: "0.1 12", lineCap: "round" }).addTo(layer);
+    L.polyline(line, { color: "#1A73E8", weight: 6, opacity: 1, dashArray: "0.1 12", lineCap: "round" }).addTo(layer);
+  }
   function drawGuide(map, T, follow) {
     var st = S.guideSt || {};
     if (T.layer) T.layer.remove();
     T.layer = L.featureGroup().addTo(map);
     var it = S.guide && S.guide.it, me = st.lat ? [st.lat, st.lon] : S.myPos || null;
     var rides = it ? it.legs.filter(function (l) { return l.type === "ride"; }) : [];
-    function walk(a, b) { if (a && b) L.polyline([a, b], { color: "#6B7891", weight: 4, dashArray: "2 7", lineCap: "round" }).addTo(T.layer); }
+    function walk(a, b, live) { drawWalk(T.layer, a, b, live); }
     if (rides.length) {
       var off = [], n = 0;
       rides.forEach(function (l) { off.push(n); n += l.stops.length; });
@@ -460,8 +499,10 @@
       else if (riding) { startLeg = legOf(cur); startK = cur - off[startLeg]; }
       else {
         if (nxt < dIdx) { startLeg = legOf(nxt); startK = 0; }
-        walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p);
+        walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p, true);
       }
+      // Menunggu di halte naik tapi masih agak jauh darinya: tetap tunjukkan jalan ke halte.
+      if (phase === "wait" && riding && me) walk(me, rides[startLeg].stops[startK].p, true);
       for (var li = startLeg; li < rides.length; li++) {
         var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride";
         var fromP = onBus && me ? me : l.stops[k0].p;
