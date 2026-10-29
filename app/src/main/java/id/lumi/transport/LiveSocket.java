@@ -29,6 +29,48 @@ public class LiveSocket {
     private OutputStream out;
     private volatile boolean closed;
     private final SecureRandom rnd = new SecureRandom();
+    /** Kode rute yang diinginkan (dinormalisasi); null = teruskan semua. Pesan rute lain dibuang di sini. */
+    public volatile java.util.Set<String> filter;
+    public volatile long bytesIn;
+    private final ByteArrayOutputStream mq = new ByteArrayOutputStream();
+
+    static String norm(String c) { return c == null ? "" : c.toUpperCase(java.util.Locale.US).replace(".", "").replace("-", "").replace(" ", ""); }
+
+    /** Pecah aliran byte MQTT menjadi paket; buang PUBLISH rute yang tidak diminta. */
+    private void deliver(byte[] data) {
+        bytesIn += data.length;
+        mq.write(data, 0, data.length);
+        byte[] b = mq.toByteArray();
+        int pos = 0;
+        ByteArrayOutputStream keep = new ByteArrayOutputStream();
+        while (true) {
+            if (b.length - pos < 2) break;
+            int mult = 1, len = 0, i = pos + 1, d;
+            boolean ok = true;
+            do {
+                if (i >= b.length) { ok = false; break; }
+                d = b[i++] & 0xFF; len += (d & 127) * mult; mult *= 128;
+            } while ((d & 128) != 0);
+            if (!ok || b.length < i + len) break;
+            int type = (b[pos] & 0xFF) >> 4;
+            boolean forward = true;
+            java.util.Set<String> f = filter;
+            if (type == 3 && f != null && len >= 2) {
+                int tl = ((b[i] & 0xFF) << 8) | (b[i + 1] & 0xFF);
+                if (tl <= len - 2) {
+                    String topic;
+                    try { topic = new String(b, i + 2, tl, "UTF-8"); } catch (Exception e) { topic = ""; }
+                    String[] seg = topic.split("/");
+                    forward = seg.length > 3 && f.contains(norm(seg[3]));
+                }
+            }
+            if (forward) keep.write(b, pos, (i + len) - pos);
+            pos = i + len;
+        }
+        mq.reset();
+        if (pos < b.length) mq.write(b, pos, b.length - pos);
+        if (keep.size() > 0) listener.onData(keep.toByteArray());
+    }
 
     public LiveSocket(String url, Listener l) { this.url = url; this.listener = l; }
 
@@ -70,7 +112,7 @@ public class LiveSocket {
                     "Sec-WebSocket-Key: " + k64 + "\r\n" +
                     "Sec-WebSocket-Version: 13\r\n" +
                     "Sec-WebSocket-Protocol: mqtt\r\n" +
-                    "User-Agent: LumiTransportation/2.2 (Android)\r\n\r\n";
+                    "User-Agent: LumiTransportation/2.3 (Android)\r\n\r\n";
             out.write(req.getBytes("UTF-8"));
             out.flush();
             String status = readHeaders(in);
@@ -96,12 +138,17 @@ public class LiveSocket {
                 byte[] payload = new byte[(int) len];
                 readFully(in, payload);
                 if (mask != null) for (int i = 0; i < payload.length; i++) payload[i] ^= mask[i & 3];
-                if (op == 0x8) { reason = "server menutup koneksi"; break; }
+                if (op == 0x8) {
+                    int code = payload.length >= 2 ? ((payload[0] & 0xFF) << 8) | (payload[1] & 0xFF) : 0;
+                    String txt = payload.length > 2 ? new String(payload, 2, payload.length - 2, "UTF-8") : "";
+                    reason = "server menutup koneksi" + (code > 0 ? " (kode " + code + (txt.isEmpty() ? "" : ": " + txt) + ")" : "");
+                    break;
+                }
                 if (op == 0x9) { sendFrame(0xA, payload); continue; }
                 if (op == 0xA) continue;
                 if (op == 0x1 || op == 0x2 || op == 0x0) {
                     msg.write(payload);
-                    if (fin) { listener.onData(msg.toByteArray()); msg.reset(); }
+                    if (fin) { deliver(msg.toByteArray()); msg.reset(); }
                 }
             }
         } catch (Exception e) {

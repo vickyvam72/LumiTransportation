@@ -10,6 +10,26 @@
 
 ---
 
+## ✦ v2.3 — 29 Oktober 2026 / 29 October 2026
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+- Bus langsung: otomatis beralih ke topik umum bila langganan per rute diputus server; saringan rute di HP; penyebab gagal + tahapnya; info pemakaian kuota
+- Tarif LRT Jabodebek mengikuti jam: jam sibuk maks. Rp20.000, di luar jam sibuk & akhir pekan maks. Rp10.000
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+- Live buses: automatic fallback to the general topic, on-phone route filtering, failure stage and data usage shown
+- Time-based LRT Jabodebek fares (peak max Rp20,000, off-peak/weekend max Rp10,000)
+
+</details>
+
+---
+
 ## ✦ v2.2 — 29 Oktober 2026 / 29 October 2026
 
 <details open>

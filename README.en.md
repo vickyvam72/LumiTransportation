@@ -136,7 +136,8 @@ Updated **29 October 2026**. Fares are estimates; always check the operator's an
 | KRL Commuter Line | Rp3,000 (first 25 km) + Rp1,000 per 10 km |
 | MRT Jakarta | Rp3,000 + Rp1,000 per station, max Rp14,000 |
 | LRT Jakarta (incl. Velodrome – Manggarai) | Rp5,000 flat |
-| LRT Jabodebek | Rp5,000 + Rp700/km, max Rp20,000 |
+| LRT Jabodebek, peak (Mon–Fri 06:00–08:59 & 16:00–19:59) | Rp5,000 + Rp700/km, max Rp20,000 |
+| LRT Jabodebek, off-peak, weekends & holidays | max Rp10,000 |
 | Airport Rail from Manggarai / BNI City / Duri | Rp70,000 (Rawa Buaya / Batu Ceper Rp35,000) |
 | Whoosh | from Rp250,000 (dynamic pricing) |
 | Motorbike ride-hailing (Greater Jakarta zone) | Rp2,550–2,800/km, minimum Rp10,200–11,200 + app fee |
@@ -150,7 +151,7 @@ Sources are listed in the [Indonesian README](README.md#-tarif-yang-dipakai).
 ## ⬇️ Download & Install
 
 1. Open the **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)** page.
-2. Under **Assets**, download `LumiTransportation-v2.2.apk`.
+2. Under **Assets**, download `LumiTransportation-v2.3.apk`.
 3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
 4. Tap **Install**. Done! 🎉
 

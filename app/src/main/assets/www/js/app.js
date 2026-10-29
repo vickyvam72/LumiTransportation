@@ -338,7 +338,8 @@
         var st = LumiLive.state(), bs = nearBoard ? Object.keys(nearBoard.buses).map(function (k) { return nearBoard.buses[k]; }) : [];
         bs.forEach(function (b) { b.dist = E.hav(p, [b.lat, b.lon]); });
         bs.sort(function (a, b) { return a.dist - b.dist; });
-        $("#liveNearStatus").textContent = liveStatusText(st, bs.length);
+        var used = LumiLive.bytes();
+        $("#liveNearStatus").textContent = liveStatusText(st, bs.length) + (used > 50000 ? " · " + (used / 1048576).toFixed(1).replace(".", ",") + " MB" : "");
         var html = '<div class="live-routes">' + list.map(function (x) { return badge(x.l, "sm"); }).join("") + "</div>";
         if (!bs.length) html += st === "error" || st === "reconnecting" ? liveFailHTML() :
           '<div class="live-card"><b>Menunggu posisi bus…</b><p>Data muncul begitu bus mengirim posisi (biasanya beberapa detik).</p></div>';
@@ -781,13 +782,13 @@
 
   function computePlan(roadK) {
     var t = targetDate();
-    if (S.time.mode !== "arr") return { dep: t, results: planner.plan(S.from.p, S.to.p, roadK, minOf(t)) };
+    if (S.time.mode !== "arr") return { dep: t, results: planner.plan(S.from.p, S.to.p, roadK, minOf(t), t.getDay()) };
     // "Tiba sebelum": cari dengan perkiraan jam berangkat, lalu ulangi dengan jam berangkat dari opsi tercepat.
     var guess = addMin(t, -Math.max(30, Math.round(E.hav(S.from.p, S.to.p) * 4 + 20)));
-    var r = planner.plan(S.from.p, S.to.p, roadK, minOf(guess));
+    var r = planner.plan(S.from.p, S.to.p, roadK, minOf(guess), guess.getDay());
     var transit = r.filter(function (x) { return !x.direct; });
     var dep = transit.length ? addMin(t, -transit[0].min) : addMin(t, -r[0].min);
-    r = planner.plan(S.from.p, S.to.p, roadK, minOf(dep));
+    r = planner.plan(S.from.p, S.to.p, roadK, minOf(dep), dep.getDay());
     r.forEach(function (x) { x.latest = addMin(t, -x.min); });
     return { dep: dep, results: r, arriveBy: t };
   }
@@ -1514,7 +1515,8 @@
       "Bayar pakai kartu uang elektronik atau aplikasi JakLingko/TJ:IKA. Pemprov DKI mengumumkan penyesuaian tarif Transjakarta mulai 1 Januari 2027; besarannya belum diumumkan.");
     html += card("KRL Commuter Line", "#E2231A", [["25 km pertama", "Rp3.000"], ["Tiap 10 km berikutnya", "+Rp1.000"]], "Tidak naik pada 2026. Kartu Multi Trip, uang elektronik, atau QR di aplikasi Access by KAI.");
     html += card("MRT Jakarta", "#0069B4", [["1 stasiun (mis. Lebak Bulus – Fatmawati)", "Rp4.000"], ["Tiap stasiun berikutnya", "+Rp1.000"], ["Lebak Bulus – Blok M", "Rp8.000"], ["Maksimum (mis. Lebak Bulus – Bundaran HI)", "Rp14.000"]]);
-    html += card("LRT", "#2C9E8E", [["LRT Jakarta, termasuk Velodrome – Manggarai (flat)", "Rp5.000"], ["LRT Jabodebek, 1 km pertama", "Rp5.000"], ["LRT Jabodebek, per km berikutnya", "+Rp700"], ["LRT Jabodebek, maksimum", "Rp20.000"]],
+    html += card("LRT", "#2C9E8E", [["LRT Jakarta, termasuk Velodrome – Manggarai (flat)", "Rp5.000"], ["LRT Jabodebek, 1 km pertama", "Rp5.000"], ["LRT Jabodebek, per km berikutnya", "+Rp700"],
+      ["LRT Jabodebek, jam sibuk (Sen–Jum 06.00–08.59 & 16.00–19.59)", "maks. Rp20.000"], ["LRT Jabodebek, di luar jam sibuk, Sabtu, Minggu & libur", "maks. Rp10.000"]],
       "Pemprov DKI menyebut tarif baru LRT Jakarta akan segera ditetapkan; sampai itu tetap flat Rp5.000.");
     html += card("KA Bandara & Whoosh", "#0F5E9C", [["KA Bandara Manggarai / BNI City / Duri – Soetta", "Rp70.000"], ["KA Bandara Rawa Buaya / Batu Ceper – Soetta", "Rp35.000"], ["KA Bandara Manggarai – BNI City", "Rp10.000"], ["Whoosh Halim – Tegalluar/Padalarang", "mulai Rp250.000"]],
       "Whoosh memakai tarif dinamis (bergantung kelas, hari, dan jam); Lumi memakai tarif terendah Rp250.000.");
@@ -1529,7 +1531,7 @@
       "<li>Urutan stasiun KRL, MRT, LRT, KA Bandara: Wikipedia & pengumuman operator (2026).</li>" +
       "<li>Peta: © OpenStreetMap contributors, © CARTO (Basemaps). Alamat: Google Maps (dibagikan ke Lumi). Jarak jalan untuk ojol: OSRM.</li></ul>" +
       "<p>Data mencakup " + (c.TJ || 0) + " rute Transjakarta, " + (c.MIKRO || 0) + " Mikrotrans, " + (c.ROYAL || 0) + " Royaltrans, " + (c.KRL || 0) + " lintas KRL, MRT, " + ((c.LRT || 0) + (c.LRTJ || 0)) + " lintas LRT, KA Bandara, dan Whoosh.</p></div>";
-    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.2. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
+    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.3. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
     $("#infoBody").innerHTML = html;
     $$("#infoBody [data-url]").forEach(function (a) { a.addEventListener("click", function () { NATIVE ? NATIVE.openUrl(a.dataset.url) : window.open(a.dataset.url); }); });
   }

@@ -409,7 +409,7 @@
     }
     var last = this.nodes[path[path.length - 1]];
     legs.push(access(last.p, to, last.n));
-    return summarize(legs, opts.depMin == null ? nowMin() : opts.depMin, this.isHalte.bind(this));
+    return summarize(legs, opts.depMin == null ? nowMin() : opts.depMin, this.isHalte.bind(this), this.dow);
   };
 
   function nowMin() { var d = new Date(); return d.getHours() * 60 + d.getMinutes(); }
@@ -419,7 +419,13 @@
      (pemberhentian pinggir jalan) atau berjalan ke halte lain, harus tap lagi = bayar lagi.
      Mikrotrans gratis; Royaltrans Rp20.000 per naik. */
   var TJ_FAMILY = function (l) { return (l.mode === "TJ" || (l.mode === "ROYAL" && l.cat === "JABODETABEK")) && !premiumFare(l); };
-  function summarize(legs, depMin, isHalte) {
+  /* LRT Jabodebek: jam sibuk hari kerja 06.00–08.59 & 16.00–19.59 → Rp5.000 + Rp700/km (maks. Rp20.000);
+     di luar jam sibuk, Sabtu, Minggu (dan hari libur) maksimal Rp10.000. */
+  function lrtjPeak(mm, dow) {
+    if (dow === 0 || dow === 6) return false;
+    return (mm >= 360 && mm < 540) || (mm >= 960 && mm < 1200);
+  }
+  function summarize(legs, depMin, isHalte, dow) {
     var min = 0, fareLo = 0, fareHi = 0, rides = 0, prevRide = null, walkSince = 0;
     isHalte = isHalte || function () { return false; };
     legs.forEach(function (l) {
@@ -429,6 +435,12 @@
         rides++;
         var f = l.fare;
         l.fareNote = "";
+        if (l.line.mode === "LRTJ" && f > 10000) {
+          var mmL = ((depMin + min - l.min) % 1440 + 1440) % 1440;
+          var dayL = dow == null ? 1 : (dow + Math.floor((depMin + min - l.min) / 1440)) % 7;
+          if (!lrtjPeak(mmL, dayL)) { f = 10000; l.fareNote = (dayL === 0 || dayL === 6 ? "akhir pekan" : "di luar jam sibuk") + ": maks. Rp10.000"; }
+          else l.fareNote = "jam sibuk: Rp5.000 + Rp700/km";
+        }
         if (TJ_FAMILY(l.line) && f > 0) {
           var mm = ((depMin + min - l.min) % 1440 + 1440) % 1440;
           if (mm >= 300 && mm < 420) f = 2000;          // tarif Rp2.000 pukul 05.00–07.00
@@ -462,8 +474,9 @@
       it.legs.filter(function (l) { return l.type === "ojol"; }).length;
   }
 
-  Planner.prototype.plan = function (from, to, roadKm, depMin) {
+  Planner.prototype.plan = function (from, to, roadKm, depMin, dow) {
     var self = this;
+    this.dow = dow == null ? new Date().getDay() : dow;   // hari (0 = Minggu) untuk tarif yang bergantung hari
     if (depMin == null) depMin = nowMin();
     var directKm = hav(from, to);
     var results = [];

@@ -53,6 +53,7 @@ public class MainActivity extends Activity {
     private boolean pageReady;
     private final Object liveLock = new Object();
     private LiveSocket live;
+    private volatile java.util.Set<String> liveFilterSet;
     private final java.util.ArrayList<String> liveQueue = new java.util.ArrayList<String>();
     private boolean liveFlushPending;
 
@@ -749,9 +750,27 @@ public class MainActivity extends Activity {
                     }
                     public void onClose(String reason) { js("window.LumiLive && LumiLive.__nativeClose(" + JSONObject.quote(reason) + ")"); }
                 });
+                live.filter = liveFilterSet;
                 live.start();
             }
         }
+
+        /** Daftar kode rute yang ingin diterima (JSON array); kosong = semua. */
+        @JavascriptInterface
+        public void liveFilter(String json) {
+            try {
+                org.json.JSONArray a = new org.json.JSONArray(json);
+                java.util.Set<String> f = new java.util.HashSet<String>();
+                for (int i = 0; i < a.length(); i++) f.add(LiveSocket.norm(a.getString(i)));
+                LiveSocket l = live;
+                if (l != null) l.filter = f.isEmpty() ? null : f;
+                liveFilterSet = f.isEmpty() ? null : f;
+            } catch (Exception ignored) { }
+        }
+
+        /** Jumlah byte yang diterima koneksi saat ini (untuk info pemakaian kuota). */
+        @JavascriptInterface
+        public double liveBytes() { LiveSocket l = live; return l == null ? 0 : l.bytesIn; }
 
         @JavascriptInterface
         public void liveSend(String b64) {
@@ -779,7 +798,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String version() {
-            return "2.2";
+            return "2.3";
         }
     }
 }

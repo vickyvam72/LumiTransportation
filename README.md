@@ -138,7 +138,8 @@ Diperbarui **29 Oktober 2026**. Tarif adalah perkiraan; selalu cek pengumuman op
 | KRL Commuter Line | Rp3.000 (25 km pertama) + Rp1.000 / 10 km |
 | MRT Jakarta | Rp3.000 + Rp1.000 per stasiun, maks. Rp14.000 |
 | LRT Jakarta (termasuk Velodrome – Manggarai) | Rp5.000 flat |
-| LRT Jabodebek | Rp5.000 + Rp700/km, maks. Rp20.000 |
+| LRT Jabodebek, jam sibuk (Sen–Jum 06.00–08.59 & 16.00–19.59) | Rp5.000 + Rp700/km, maks. Rp20.000 |
+| LRT Jabodebek, di luar jam sibuk, Sabtu, Minggu & libur | maks. Rp10.000 |
 | KA Bandara Manggarai / BNI City / Duri – Soetta | Rp70.000 (Rawa Buaya / Batu Ceper Rp35.000) |
 | Whoosh | mulai Rp250.000 (tarif dinamis) |
 | Ojol motor (zona Jabodetabek) | Rp2.550–2.800/km, minimum Rp10.200–11.200 + biaya aplikasi |
@@ -155,6 +156,8 @@ Diperbarui **29 Oktober 2026**. Tarif adalah perkiraan; selalu cek pengumuman op
 - [LRT Velodrome–Manggarai diresmikan, tarif flat Rp5.000 (CNN Indonesia)](https://www.cnnindonesia.com/nasional/20260826062444-20-1396280/lrt-velodrome-manggarai-diresmikan-hari-ini-tarif-flat-rp5000)
 - [Tarif KRL dipastikan tidak naik (detik)](https://finance.detik.com/infrastruktur/d-8549190/tarif-krl-dipastikan-tidak-naik)
 - [Daftar tarif MRT Jakarta tiap stasiun 2026](https://jadwalkeretaapi.com/tarif-mrt-jakarta-daftar-stasiun-mrt-jakarta/)
+- [Cara naik LRT Jabodebek: tarif jam sibuk & di luar jam sibuk (Dealls)](https://dealls.com/pengembangan-karir/cara-naik-lrt)
+- [Rute LRT Jabodebek 2026: stasiun, tarif (Jendela360)](https://jendela360.com/info/rute-lrt-jabodebek-2026-ra0526/)
 - [Jadwal & harga kereta Bandara Soekarno-Hatta (Dealls)](https://dealls.com/pengembangan-karir/jadwal-kereta-bandara)
 - [Whoosh terapkan tarif dinamis, mulai Rp250.000 (Kompas)](https://money.kompas.com/read/2026/06/14/191200526/whoosh-terapkan-tarif-dinamis-saat-libur-sekolah-harga-tiket-mulai-rp-250.000)
 - [Perpres ojol terbit: potongan 8%, tarif diatur Kemenhub (CNN Indonesia)](https://www.cnnindonesia.com/otomotif/20261009100050-579-1413414/perpres-ojol-terbit-tegaskan-potongan-8-dan-tarif-diatur-kemenhub)
@@ -166,7 +169,7 @@ Diperbarui **29 Oktober 2026**. Tarif adalah perkiraan; selalu cek pengumuman op
 ## ⬇️ Unduh & Pasang
 
 1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)**.
-2. Di bagian **Assets**, unduh `LumiTransportation-v2.2.apk`.
+2. Di bagian **Assets**, unduh `LumiTransportation-v2.3.apk`.
 3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
 4. Tekan **Instal**. Selesai! 🎉
 
