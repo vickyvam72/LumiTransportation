@@ -158,6 +158,7 @@ def main():
     ap.add_argument("--zip", help="pakai file GTFS lokal (untuk uji)")
     ap.add_argument("--data", default="data")
     ap.add_argument("--date", help="tanggal/jam (uji)")
+    ap.add_argument("--save-zip", help="simpan GTFS yang diunduh ke file ini")
     a = ap.parse_args()
     os.makedirs(a.data, exist_ok=True)
     if a.zip:
@@ -165,6 +166,8 @@ def main():
     else:
         req = urllib.request.Request(GTFS_URL, headers={"User-Agent": UA})
         raw = urllib.request.urlopen(req, timeout=180).read()
+    if a.save_zip:
+        open(a.save_zip, "wb").write(raw)
     sha = hashlib.sha256(raw).hexdigest()
     meta_p = os.path.join(a.data, "gtfs_meta.json")
     idx_p = os.path.join(a.data, "route_index.txt")
