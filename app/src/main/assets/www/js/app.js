@@ -906,6 +906,7 @@
       out.results.forEach(colorize);
       S.results = out.results; S.dep = out.dep; S.arriveBy = out.arriveBy; S.showAll = false; S.filt = null;
       renderResults(out.results, out.dep);
+      $("#tab-plan").scrollTop = 0;   // hanya pencarian baru yang kembali ke atas
       roadKm(S.from.p, S.to.p).then(function (k) {
         if (!k || seq !== planSeq) return;
         // Cukup perbarui estimasi ojol langsung dengan jarak jalan sebenarnya (tanpa menghitung ulang rute).
@@ -915,7 +916,10 @@
           leg.fare = it.direct === "car" ? E.ojolCar(k) : E.ojolMotor(k);
           it.min = Math.round(leg.min); it.fareLo = leg.fare.lo; it.fareHi = leg.fare.hi;
         });
+        // Perbarui hasil tanpa menggeser layar (jawaban OSRM bisa datang saat pengguna sedang menggulir).
+        var tab = $("#tab-plan"), keep = tab.scrollTop;
         renderResults(S.results, S.dep);
+        tab.scrollTop = keep;
       });
     }, 30);
   }
@@ -1068,7 +1072,6 @@
         openTrip(results[+el.dataset.i]);
       });
     });
-    $("#tab-plan").scrollTop = 0;
   }
 
   /* ------------------------------------------------------- peta */
