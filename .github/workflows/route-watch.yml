@@ -5,6 +5,9 @@ name: Pantau perubahan rute
 on:
   schedule:
     - cron: "17 * * * *"
+  push:
+    branches: [ main ]
+    paths: [ "tools/route_watch.py", ".github/workflows/route-watch.yml" ]
   workflow_dispatch:
 
 permissions:
@@ -26,7 +29,13 @@ jobs:
           python-version: "3.12"
 
       - name: Cek GTFS resmi
-        run: python3 tools/route_watch.py --data data
+        run: |
+          # Catat status (berhasil / gagal) ke data/watch_status.json agar terlihat tanpa membuka log.
+          if python3 tools/route_watch.py --data data 2> err.txt; then
+            printf '{\n "ok": true\n}\n' > data/watch_status.json
+          else
+            python3 -c "import json;print(json.dumps({'ok':False,'error':open('err.txt').read()[-600:]},indent=1))" > data/watch_status.json
+          fi
 
       - name: Simpan perubahan
         run: |
