@@ -10,6 +10,26 @@
 
 ---
 
+## ✦ v2.4 — 29 Oktober 2026 / 29 October 2026
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+- Hasil rute tanpa pemborosan: rute sama dengan halte lebih jauh/lebih lama dibuang, rute bolak-balik dibuang
+- Bus langsung: penyebab penolakan server ditampilkan dengan benar
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+- No wasteful results: same-route options with worse stops and back-and-forth routes removed
+- Live buses: server refusal reason shown correctly
+
+</details>
+
+---
+
 ## ✦ v2.3 — 29 Oktober 2026 / 29 October 2026
 
 <details open>

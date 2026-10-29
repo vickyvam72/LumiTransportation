@@ -748,7 +748,16 @@ public class MainActivity extends Activity {
                         synchronized (liveLock) { liveQueue.add(android.util.Base64.encodeToString(d, android.util.Base64.NO_WRAP)); }
                         scheduleLiveFlush();
                     }
-                    public void onClose(String reason) { js("window.LumiLive && LumiLive.__nativeClose(" + JSONObject.quote(reason) + ")"); }
+                    public void onClose(String reason) {
+                        // Kirim dulu data yang masih antre (mis. balasan CONNACK) agar penyebab sebenarnya tidak hilang.
+                        StringBuilder sb = new StringBuilder("[");
+                        synchronized (liveLock) {
+                            for (int i = 0; i < liveQueue.size(); i++) { if (i > 0) sb.append(','); sb.append('"').append(liveQueue.get(i)).append('"'); }
+                            liveQueue.clear();
+                        }
+                        sb.append(']');
+                        js("window.LumiLive && (LumiLive.__nativeData(" + sb + "), LumiLive.__nativeClose(" + JSONObject.quote(reason) + "))");
+                    }
                 });
                 live.filter = liveFilterSet;
                 live.start();
@@ -798,7 +807,7 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String version() {
-            return "2.3";
+            return "2.4";
         }
     }
 }

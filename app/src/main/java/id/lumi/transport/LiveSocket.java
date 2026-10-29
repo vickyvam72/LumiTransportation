@@ -112,7 +112,7 @@ public class LiveSocket {
                     "Sec-WebSocket-Key: " + k64 + "\r\n" +
                     "Sec-WebSocket-Version: 13\r\n" +
                     "Sec-WebSocket-Protocol: mqtt\r\n" +
-                    "User-Agent: LumiTransportation/2.3 (Android)\r\n\r\n";
+                    "User-Agent: LumiTransportation/2.4 (Android)\r\n\r\n";
             out.write(req.getBytes("UTF-8"));
             out.flush();
             String status = readHeaders(in);

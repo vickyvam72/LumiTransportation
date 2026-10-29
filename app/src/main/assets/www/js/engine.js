@@ -512,6 +512,10 @@
         if (it.legs.some(function (l) { return l.type === "ride" && (l.km < 0.3 || l.from === l.to); })) return null;
         if (ojolKm > rideKm * 0.5) return null;     // ojol mendominasi: lebih baik ojol langsung
         if (walkKm > 2.6) return null;              // jalan kaki terlalu jauh
+        // Bolak-balik: turun di dekat tempat naik rute sebelumnya (mis. 9C Makasar→Pinang Ranti lalu 9N kembali ke Makasar).
+        var rl = it.legs.filter(function (l) { return l.type === "ride" && l.fromP && l.toP; });
+        for (var i1 = 1; i1 < rl.length; i1++)
+          for (var i0 = 0; i0 < i1; i0++) if (hav(rl[i1].toP, rl[i0].fromP) < 0.6) return null;
         var sig = signature(it);
         if (seen[sig]) return seen[sig];
         // Rute berkode beda (mis. 9 dan 9A) sengaja TIDAK digabung: masing-masing jadi opsi sendiri.
@@ -599,6 +603,21 @@
       if (shown[k]) return false;
       shown[k] = 1; return true;
     });
+    // Rute sama berurutan (mis. JAK36 saja) tapi beda halte naik/turun: buang yang kalah di semua hal
+    // (lebih lama/sama, lebih mahal/sama, jalan kaki lebih jauh/sama). Tidak ada pemborosan rute.
+    var byCodes = results.map(function (r) {
+      return { r: r, c: r.legs.filter(isRide).map(function (l) { return l.line.code; }).join(">") + "|" + hasOjol(r), w: walkOf(r) };
+    });
+    results = byCodes.filter(function (x) {
+      return !byCodes.some(function (y) {
+        if (y === x || y.c !== x.c) return false;
+        // "Hampir sama atau lebih baik" di semua hal (selisih ≤2 menit / ≤150 m jalan dianggap sama),
+        // dan lebih baik secara keseluruhan → opsi x hanya pemborosan.
+        if (!(y.r.fareLo <= x.r.fareLo && y.r.min <= x.r.min + 2 && y.w <= x.w + 0.15)) return false;
+        var sy = score(y.r), sx = score(x.r);
+        return sy < sx || (sy === sx && byCodes.indexOf(y) < byCodes.indexOf(x));
+      });
+    }).map(function (x) { return x.r; });
     var pureList = results.filter(function (r) { return !hasOjol(r); }).slice(0, 40);
     var ojolList = results.filter(hasOjol).slice(0, 4);
     results = pureList.concat(ojolList);
