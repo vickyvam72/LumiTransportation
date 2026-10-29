@@ -1,0 +1,10 @@
+[v4 lumi_ route] timeout 15s |  | msgs=0 bytes=0 topics=
+[v4 lumi_ route] closed | error WebSocket was closed before the connection was established ; close 1006 "" after 15045ms | msgs=0 bytes=0 topics=
+[v4 lumi_ all] timeout 15s |  | msgs=0 bytes=0 topics=
+[v4 lumi_ all] closed | error WebSocket was closed before the connection was established ; close 1006 "" after 15017ms | msgs=0 bytes=0 topics=
+[v4 empty-id] timeout 15s |  | msgs=0 bytes=0 topics=
+[v4 empty-id] closed | error WebSocket was closed before the connection was established ; close 1006 "" after 15012ms | msgs=0 bytes=0 topics=
+[v3 lumi_] timeout 15s |  | msgs=0 bytes=0 topics=
+[v3 lumi_] closed | error WebSocket was closed before the connection was established ; close 1006 "" after 15016ms | msgs=0 bytes=0 topics=
+[v5 lumi_] timeout 15s |  | msgs=0 bytes=0 topics=
+[v5 lumi_] closed | error WebSocket was closed before the connection was established ; close 1006 "" after 15017ms | msgs=0 bytes=0 topics=
