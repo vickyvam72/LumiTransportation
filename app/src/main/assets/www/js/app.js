@@ -145,7 +145,7 @@
     ROUTE_SRC = { kind: "gtfs", date: g.date, count: g.lines.length };
   })();
   var planner = new E.Planner(DATA);
-  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; }, tripZoom: function () { return tripMap ? tripMap.getZoom() : -1; } };   // untuk pengujian
+  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; }, tripZoom: function () { return tripMap ? tripMap.getZoom() : -1; }, liveWalk: function () { return LIVEW; } };   // untuk pengujian
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var NATIVE = window.LumiNative || null;
@@ -447,13 +447,30 @@
    * titik-titik biru seperti Google Maps. Bila tidak ada jawaban / rutenya memutar tidak wajar → garis lurus.
    */
   var FOOT = {}, LIVEW = null;
-  function footUrl(a, b) { return "https://routing.openstreetmap.de/routed-foot/route/v1/driving/" + a[1] + "," + a[0] + ";" + b[1] + "," + b[0] + "?overview=full&geometries=geojson"; }
+  /*
+   * Dua sumber rute, dipilih yang paling masuk akal:
+   *  - pejalan kaki (routing.openstreetmap.de/routed-foot) — gang & jalan setapak;
+   *  - jalan raya (router.project-osrm.org) — di data OSM, jalan besar seperti Jl. Raya Bogor sering tidak
+   *    termasuk jaringan pejalan kaki, sehingga rute kaki berakhir di ujung gang di belakang halte.
+   * Skor = panjang rute + jarak dari posisiku ke awal rute + 4 × jarak "terpotong" dari ujung rute ke halte
+   * (bagian lurus menembus bangunan sangat tidak disukai).
+   */
+  var FOOT_SRC = [
+    "https://routing.openstreetmap.de/routed-foot/route/v1/driving/",
+    "https://router.project-osrm.org/route/v1/driving/"
+  ];
   function footFetch(a, b, done) {
-    http(footUrl(a, b), 9000).then(function (j) {
-      var r = j && j.routes && j.routes[0], straight = E.hav(a, b);
-      if (!r || !r.geometry || r.distance / 1000 > Math.max(straight * 2.6, straight + 0.6)) return done(null);
-      done(r.geometry.coordinates.map(function (c) { return [c[1], c[0]]; }));
-    }).catch(function () { done(null); });
+    var q = a[1] + "," + a[0] + ";" + b[1] + "," + b[0] + "?overview=full&geometries=geojson";
+    var straight = E.hav(a, b) * 1000, left = FOOT_SRC.length, best = null;
+    FOOT_SRC.forEach(function (base) {
+      http(base + q, 9000).then(function (j) {
+        var r = j && j.routes && j.routes[0], w = j && j.waypoints;
+        if (!r || !r.geometry || r.distance > Math.max(straight * 2.6, straight + 600)) return;
+        var g0 = w && w[0] ? w[0].distance : 0, g1 = w && w[1] ? w[1].distance : 0;
+        var score = r.distance + g0 + 4 * g1;
+        if (!best || score < best.score) best = { score: score, pts: r.geometry.coordinates.map(function (c) { return [c[1], c[0]]; }) };
+      }).catch(function () { }).then(function () { if (--left === 0) done(best ? best.pts : null); });
+    });
   }
   /* Ruas jalan kaki tetap (pindah antarhalte, halte → tujuan): diambil sekali lalu disimpan. */
   function footPath(a, b) {
@@ -507,7 +524,8 @@
         var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride";
         var fromP = onBus && me ? me : l.stops[k0].p;
         var pts = shapeSlice(l.line, l.dirIndex, fromP, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
-        if (onBus && me) pts = [me].concat(pts);
+        // Sambungkan garis tepat ke halte (bentuk rute berhenti di titik bentuk terdekat, bukan di halte).
+        pts = [onBus && me ? me : l.stops[k0].p].concat(pts, [l.stops[l.stops.length - 1].p]);
         L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(T.layer);
         L.polyline(pts, { color: lc(l), weight: 6 }).addTo(T.layer);
         for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
@@ -1128,8 +1146,10 @@
   var allMaps = [];
   var ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
   function makeMap(el) {
-    var m = L.map(el, { zoomControl: false, attributionControl: true }).setView(JKT, 12);
-    m._lumiTiles = L.tileLayer(tileUrl(), { maxZoom: 19, attribution: ATTR }).addTo(m);
+    var m = L.map(el, { zoomControl: false, attributionControl: true, maxZoom: 20 }).setView(JKT, 12);
+    // Ubin peta asli hanya tersedia sampai zoom 18 di semua wilayah; zoom lebih dekat memperbesar ubin 18
+    // (bukan abu-abu kosong).
+    m._lumiTiles = L.tileLayer(tileUrl(), { maxZoom: 20, maxNativeZoom: 18, keepBuffer: 4, attribution: ATTR }).addTo(m);
     m.attributionControl.setPrefix(false);
     allMaps.push(m);
     return m;
@@ -1160,7 +1180,8 @@
       tripLayer = L.featureGroup().addTo(tripMap);
       it.legs.forEach(function (l) {
         if (l.type === "ride") {
-          var pts = shapeSlice(l.line, l.dirIndex, l.fromP, l.toP) || l.stops.map(function (s) { return s.p; });
+          var pts = shapeSlice(l.line, l.dirIndex, l.fromP, l.toP);
+          pts = pts ? [l.fromP].concat(pts, [l.toP]) : l.stops.map(function (s) { return s.p; });
           L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(tripLayer);
           L.polyline(pts, { color: lc(l), weight: 6 }).addTo(tripLayer);
           l.stops.forEach(function (s, k) {

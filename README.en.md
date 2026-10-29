@@ -84,7 +84,7 @@
 
 **🧭 GPS guidance**
 - The map shows only what's left of the trip: passed lines and stops disappear; the first walk starts from where you are now
-- Walking is shown as blue dots along real streets (foot routing from [routing.openstreetmap.de](https://routing.openstreetmap.de))
+- Walking is shown as blue dots along real streets (foot routing from [routing.openstreetmap.de](https://routing.openstreetmap.de) and road routing from [OSRM](https://project-osrm.org), whichever fits best)
 - **Picture-in-picture**: a small live map plus instructions stay visible while you use other apps; closing the window closes the app
 - **Compass beam**: your location dot shows which way your phone is facing
 - A prompt to turn on GPS when phone location is off

@@ -84,7 +84,7 @@
 
 **🧭 Pendampingan GPS**
 - Peta hanya menampilkan sisa perjalanan: garis dan halte yang sudah dilewati menghilang; langkah pertama dimulai dari posisimu sekarang
-- Jalan kaki ditunjukkan dengan titik-titik biru lewat jalan sebenarnya (rute pejalan kaki dari [routing.openstreetmap.de](https://routing.openstreetmap.de))
+- Jalan kaki ditunjukkan dengan titik-titik biru lewat jalan sebenarnya (rute pejalan kaki [routing.openstreetmap.de](https://routing.openstreetmap.de) dan rute jalan [OSRM](https://project-osrm.org), dipilih yang paling masuk akal)
 - **Mode PiP**: peta kecil + instruksi tetap terlihat dalam jendela kecil saat kamu membuka aplikasi lain; menutup jendelanya menutup aplikasi
 - **Senter arah hadap**: titik posisimu menunjukkan ke mana HP menghadap
 - Pop-up untuk menyalakan GPS bila Lokasi HP masih mati
