@@ -10,6 +10,28 @@
 
 ---
 
+## ✦ v2.5 — 29 Oktober 2026 / 29 October 2026
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+- Warna pembeda untuk rute berturut-turut yang warnanya sama; teks pindah di halte yang sama menyebut rute berikutnya
+- Info rute dikelompokkan rapi (TJ, Mikrotrans, Royaltrans, Transjabodetabek, kereta)
+- Bus langsung: penjelasan jelas bila server menolak, tombol aplikasi TJ, coba lagi tiap 15 menit
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+- Distinct colors for consecutive same-colored routes; clearer same-stop transfers
+- Route list grouped cleanly
+- Live buses: clear message when refused, TJ app button, retry every 15 minutes
+
+</details>
+
+---
+
 ## ✦ v2.4 — 29 Oktober 2026 / 29 October 2026
 
 <details open>

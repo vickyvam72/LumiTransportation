@@ -77,7 +77,7 @@
       buf = buf.slice(i + len);
       if (type === 2) {                        // CONNACK
         if (body[1] === 0) { connected = true; phase = "connack"; retryMs = 2000; active = {}; setState("connected"); syncSubs(); }
-        else { refused = body[1]; lastError = "login ditolak server: " + (CONNACK_TXT[body[1]] || "kode " + body[1]); setState("error"); }
+        else { refused = body[1]; if (body[1] === 2 || body[1] === 4 || body[1] === 5) denied = true; lastError = "login ditolak server: " + (CONNACK_TXT[body[1]] || "kode " + body[1]); setState("error"); }
       } else if (type === 9) {                 // SUBACK
         for (var k = 2; k < body.length; k++) if (body[k] === 0x80) lastError = "langganan topik ditolak server";
       } else if (type === 3) {                 // PUBLISH
@@ -102,7 +102,7 @@
     pingT = setInterval(function () { send(new Uint8Array([0xC0, 0])); }, 45000);
   }
   var CONNACK_TXT = { 1: "versi MQTT tidak didukung (1)", 2: "ID klien ditolak (2)", 3: "layanan sedang tidak tersedia (3)", 4: "nama/kata sandi salah (4)", 5: "tidak diizinkan (5)" };
-  var refused = 0;
+  var refused = 0, denied = false;   // denied: server hanya melayani aplikasi resminya → jangan terus mencoba
   var PHASE_TXT = { "": "sebelum tersambung", ws: "sebelum login MQTT", connack: "setelah login", sub: "setelah berlangganan rute", data: "saat menerima data" };
   function onClosed(reason) {
     var ph = phase;
@@ -115,10 +115,12 @@
       try { localStorage.setItem("lumi:liveAll", "1"); } catch (e) { }
       retryMs = 500;
     }
+    if (denied) { clearTimeout(retryT); retryMs = 15 * 60000; if (watchers.length) { setState("denied"); retryT = setTimeout(function () { denied = false; connect(); }, retryMs); } else setState("idle"); return; }
     if (watchers.length) { setState("reconnecting"); scheduleRetry(); } else setState("idle");
   }
   function connect() {
     if (ws || !watchers.length) return;
+    if (denied) { setState("denied"); return; }
     setState("connecting"); phase = "";
     var n = NATIVE();
     if (n) { ws = "native"; if (n.liveFilter) n.liveFilter(JSON.stringify(wantedCodes())); n.liveOpen(Live.url); return; }
@@ -145,6 +147,7 @@
     state: function () { return state; },
     lastError: function () { return lastError; },
     allMode: function () { return allMode; },
+    denied: function () { return denied; },
     bytes: function () { var n = NATIVE(); try { return n && n.liveBytes ? +n.liveBytes() : bytesWeb; } catch (e) { return bytesWeb; } },
     // dipanggil dari MainActivity (koneksi native)
     __nativeOpen: function () { if (ws === "native") onOpen(); },

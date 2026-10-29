@@ -162,8 +162,37 @@
     var c = hex.replace("#", ""); var r = parseInt(c.substr(0, 2), 16), g = parseInt(c.substr(2, 2), 16), b = parseInt(c.substr(4, 2), 16);
     return (r * 299 + g * 587 + b * 114) / 1000 > 165 ? "#13234B" : "#fff";
   }
-  function badge(line, cls) {
-    return '<span class="badge ' + (cls || "") + '" style="background:' + line.color + ';color:' + textColor(line.color) + '">' + esc(line.code) + "</span>";
+  function badge(line, cls, color) {
+    var c = color || line.color;
+    return '<span class="badge ' + (cls || "") + '" style="background:' + c + ';color:' + textColor(c) + '">' + esc(line.code) + "</span>";
+  }
+  /* Warna per langkah: dua rute berturut-turut yang warnanya sama/mirip (mis. JAK36 lalu JAK43B, sama-sama biru
+     Mikrotrans) diberi warna pembeda agar jelas di strip, peta, detail, dan gambar bagikan. */
+  var ALT_COLORS = ["#0E9384", "#7C4DD8", "#D9601A", "#C2185B", "#2E7D32"];
+  function rgb(h) { var c = h.replace("#", ""); return [parseInt(c.substr(0, 2), 16), parseInt(c.substr(2, 2), 16), parseInt(c.substr(4, 2), 16)]; }
+  function near(a, b) { var x = rgb(a), y = rgb(b); return Math.abs(x[0] - y[0]) + Math.abs(x[1] - y[1]) + Math.abs(x[2] - y[2]) < 110; }
+  function colorize(it) {
+    if (!it || it._colored) return it;
+    var used = [], prev = null;
+    it.legs.forEach(function (l) {
+      if (l.type !== "ride") { if (l.type === "ojol") prev = "#00AA13"; return; }
+      var c = l.line.color || "#8D8482";
+      if (prev && near(c, prev)) {
+        c = ALT_COLORS.filter(function (a) { return !near(a, prev) && used.indexOf(a) < 0 && !near(a, l.line.color); })[0] || ALT_COLORS[0];
+        l.colorNote = true;
+      }
+      l._c = c; used.push(c); prev = c;
+    });
+    it._colored = true;
+    return it;
+  }
+  function lc(l) { return l._c || l.line.color; }
+  function nextRideText(n) { return n && n.type === "ride" ? ", lalu ganti ke <b>" + esc(modeLabel(n.line) + " " + n.line.code) + "</b>" : ""; }
+  function sameStopText(p, n) {
+    var railBoth = p && n && p.type === "ride" && n.type === "ride" && RAIL[p.line.mode] && RAIL[n.line.mode];
+    if (railBoth) return "Pindah peron/jalur di stasiun yang sama" + nextRideText(n);
+    if (n && n.type === "ride") return "Turun, lalu ganti ke <b>" + esc(modeLabel(n.line) + " " + n.line.code) + "</b> di " + (RAIL[n.line.mode] ? "stasiun" : "halte") + " yang sama";
+    return "Pindah di tempat yang sama";
   }
   function modeLabel(line) {
     if (line.mode === "TJ") return line.brt ? "Transjakarta" : "Transjakarta non-BRT";
@@ -260,11 +289,15 @@
   function fmtEta(sec) { var m = Math.round(sec / 60); return m <= 0 ? "tiba" : "±" + m + " mnt"; }
   function liveStatusText(st, n) {
     return st === "connected" ? (n ? n + " bus aktif" : "Terhubung · menunggu data bus…") : st === "connecting" ? "Menghubungkan…" :
-      st === "reconnecting" ? "Menyambung ulang…" : st === "error" ? "Gagal terhubung" : "";
+      st === "reconnecting" ? "Menyambung ulang…" : st === "error" ? "Gagal terhubung" : st === "denied" ? "Posisi bus tidak tersedia di Lumi" : "";
   }
   /* Penjelasan gagal + jalan keluar (buka aplikasi resmi TJ). */
   function liveFailHTML() {
     var why = LumiLive.lastError();
+    if (LumiLive.state() === "denied")
+      return '<div class="live-card"><b>Posisi bus hanya tersedia di aplikasi TJ</b><p>Server armada Transjakarta menolak aplikasi selain aplikasi resminya, jadi Lumi tidak bisa menampilkan posisi bus. Lumi mencoba lagi tiap 15 menit kalau aksesnya dibuka.' +
+        (why ? ' <span class="live-why">Detail: ' + esc(why) + "</span>" : "") + "</p>" +
+        '<div class="btn-row"><button class="btn-sec" data-tjapp>Lihat di aplikasi TJ</button></div></div>';
     return '<div class="live-card"><b>Belum bisa terhubung ke data armada</b><p>Lumi akan mencoba lagi otomatis.' +
       (why ? ' <span class="live-why">Detail: ' + esc(why) + "</span>" : "") + "</p>" +
       '<div class="btn-row"><button class="btn-sec" data-tjapp>Lihat di aplikasi TJ</button></div></div>';
@@ -341,7 +374,7 @@
         var used = LumiLive.bytes();
         $("#liveNearStatus").textContent = liveStatusText(st, bs.length) + (used > 50000 ? " · " + (used / 1048576).toFixed(1).replace(".", ",") + " MB" : "");
         var html = '<div class="live-routes">' + list.map(function (x) { return badge(x.l, "sm"); }).join("") + "</div>";
-        if (!bs.length) html += st === "error" || st === "reconnecting" ? liveFailHTML() :
+        if (!bs.length) html += st === "error" || st === "reconnecting" || st === "denied" ? liveFailHTML() :
           '<div class="live-card"><b>Menunggu posisi bus…</b><p>Data muncul begitu bus mengirim posisi (biasanya beberapa detik).</p></div>';
         html += '<ul class="bus-list">' + bs.slice(0, 30).map(function (b) {
           var ns = nextStop(b), l = planner.searchLines(b.code)[0];
@@ -805,6 +838,7 @@
     setTimeout(function () {
       var out = computePlan(null);
       if (seq !== planSeq) return;
+      out.results.forEach(colorize);
       S.results = out.results; S.dep = out.dep; S.arriveBy = out.arriveBy; S.showAll = false; S.filt = null;
       renderResults(out.results, out.dep);
       roadKm(S.from.p, S.to.p).then(function (k) {
@@ -829,7 +863,7 @@
     var total = it.legs.reduce(function (s, l) { return s + l.min + (l.wait || 0); }, 0) || 1;
     return '<div class="strip">' + it.legs.map(function (l) {
       var w = Math.max(1, (l.min + (l.wait || 0)) / total * 100);
-      if (l.type === "ride") return '<div class="seg" style="flex:' + w + ' 1 0;background:' + l.line.color + ';color:' + textColor(l.line.color) + '">' + esc(l.line.code) + "</div>";
+      if (l.type === "ride") return '<div class="seg" style="flex:' + w + ' 1 0;background:' + lc(l) + ';color:' + textColor(lc(l)) + '">' + esc(l.line.code) + "</div>";
       if (l.type === "ojol") return '<div class="seg ojol" style="flex:' + w + ' 1 0">' + legIcon("ojol") + "</div>";
       return '<div class="seg walk" style="flex:' + Math.max(w, 2) + ' 1 0" title="jalan kaki"></div>';
     }).join("") + "</div>";
@@ -997,6 +1031,7 @@
   /* ------------------------------------------------------- detail perjalanan */
   var tripMap, tripLayer, tripBoard = null;
   function openTrip(it) {
+    colorize(it);
     S.openTrip = it;
     var sheet = $("#sheetTrip"); sheet.hidden = false;
     $("#tripTitle").textContent = S.from.name + " ke " + S.to.name;
@@ -1009,9 +1044,9 @@
         if (l.type === "ride") {
           var pts = shapeSlice(l.line, l.dirIndex, l.fromP, l.toP) || l.stops.map(function (s) { return s.p; });
           L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(tripLayer);
-          L.polyline(pts, { color: l.line.color, weight: 6 }).addTo(tripLayer);
+          L.polyline(pts, { color: lc(l), weight: 6 }).addTo(tripLayer);
           l.stops.forEach(function (s, k) {
-            var mk = L.marker(s.p, { icon: dotIcon("lm-stop", l.line.color) }).addTo(tripLayer);
+            var mk = L.marker(s.p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(tripLayer);
             if (k === 0 || k === l.stops.length - 1) mk.bindTooltip(s.n, { className: "lm-tip", direction: "top", offset: [0, -6] });
           });
         } else {
@@ -1041,7 +1076,7 @@
       if (l.type === "walk" || l.type === "transfer") {
         var dest = l.type === "transfer" ? l.to : (i === it.legs.length - 1 ? S.to.name : l.label);
         var desc = l.type === "transfer"
-          ? (l.km < 0.05 ? "Pindah peron/jalur di stasiun yang sama" : "Jalan kaki " + km(l.km) + " (±" + mins(l.min) + ") ke " + esc(l.to))
+          ? (l.km < 0.05 ? sameStopText(it.legs[i - 1], it.legs[i + 1]) : "Jalan kaki " + km(l.km) + " (±" + mins(l.min) + ") ke " + esc(l.to) + nextRideText(it.legs[i + 1]))
           : "Jalan kaki " + km(l.km) + " (±" + mins(l.min) + ")" + (dest ? " ke " + esc(dest) : "");
         html += step(l.type, null, "", "", '<div class="st-desc">' + desc + "</div>");
         t += l.min;
@@ -1056,8 +1091,8 @@
         var boardT = addMin(dep, t);
         var inner = l.stops.slice(1, -1);
         var alts = (l.alts || []).map(function (a) { return badge(a, "xs"); }).join(" ");
-        html += step("ride", l.line.color, clock(boardT), l.from,
-          '<div class="st-card"><div class="row">' + badge(l.line, "sm") + '<span class="ttl">' + esc(modeLabel(l.line)) + " " + esc(l.line.code) + (l.night ? '<span class="night-tag">AMARI</span>' : "") + "</span></div>" +
+        html += step("ride", lc(l), clock(boardT), l.from,
+          '<div class="st-card"><div class="row">' + badge(l.line, "sm", lc(l)) + '<span class="ttl">' + esc(modeLabel(l.line)) + " " + esc(l.line.code) + (l.night ? '<span class="night-tag">AMARI</span>' : "") + "</span></div>" +
           '<div class="dir">Arah <b>' + esc(l.headsign) + "</b></div>" +
           (l.variant ? '<div class="alt">' + esc(l.variant) + "</div>" : "") +
           (l.fareNote ? '<div class="alt">Tarif: ' + esc(l.fareNote) + "</div>" : "") +
@@ -1068,7 +1103,7 @@
           '<div class="st-foot">' + (inner.length ? '<button class="st-toggle" data-tog="' + inner.length + '">Lihat ' + inner.length + " pemberhentian</button>" : "") +
           '<button class="st-toggle" data-line="' + l.line.id + '">Info rute ' + esc(l.line.code) + "</button></div></div>");
         t += l.min;
-        html += step("ride", l.line.color, clock(addMin(dep, t)), l.to, '<div class="st-desc">Turun di sini</div>');
+        html += step("ride", lc(l), clock(addMin(dep, t)), l.to, '<div class="st-desc">Turun di sini</div>');
       }
     });
     html += step("dest", "#38BDF8", clock(addMin(dep, it.min)), S.to.name, '<div class="st-desc">Sampai tujuan</div>');
@@ -1094,7 +1129,7 @@
     var liveLegs = [];
     it.legs.forEach(function (l, i) { if (l.type === "ride" && liveOk(l.line)) liveLegs.push({ l: l, i: i }); });
     if (liveLegs.length && tripMap) {
-      var codeColor = {}; liveLegs.forEach(function (x) { codeColor[LumiLive.norm(x.l.line.code)] = x.l.line.color; });
+      var codeColor = {}; liveLegs.forEach(function (x) { codeColor[LumiLive.norm(x.l.line.code)] = lc(x.l); });
       var renderT = function () {
         liveLegs.forEach(function (x) {
           var el = $('.live-eta[data-leg="' + x.i + '"]', body); if (!el) return;
@@ -1108,7 +1143,9 @@
           var st = LumiLive.state();
           el.classList.toggle("on", !!best);
           el.innerHTML = '<i class="live-dot"></i>' + (best ? "Bus " + esc(x.l.line.code) + " berikutnya tiba di " + esc(x.l.from) + " <b>" + fmtEta(best.e) + "</b> <span>(" + esc(best.b.key) + ")</span>" :
-            st === "connected" ? "Belum ada bus " + esc(x.l.line.code) + " menuju " + esc(x.l.from) + " yang terpantau" : liveStatusText(st, 0) || "Menghubungkan ke data armada…");
+            st === "connected" ? "Belum ada bus " + esc(x.l.line.code) + " menuju " + esc(x.l.from) + " yang terpantau" :
+            st === "denied" ? 'Posisi bus hanya ada di aplikasi TJ · <button class="st-toggle" data-tjapp>Buka</button>' : liveStatusText(st, 0) || "Menghubungkan ke data armada…");
+          bindTjApp(el);
         });
       };
       var tT = null;
@@ -1160,12 +1197,12 @@
         t += l.min;
       } else {
         t += l.wait;
-        steps.push({ kind: "ride", color: l.line.color, badge: l.line.code, time: clock(addMin(dep, t)),
+        steps.push({ kind: "ride", color: lc(l), badge: l.line.code, time: clock(addMin(dep, t)),
           title: "Naik " + modeLabel(l.line) + " " + l.line.code + (l.variant ? (/Tol/.test(l.variant) ? " (via Tol)" : " (varian)") : ""),
           sub: "Dari " + l.from + " arah " + l.headsign,
           sub2: (l.stops.length - 1) + " " + (RAIL[l.line.mode] ? "stasiun" : "halte") + " · ±" + mins(l.min) + " · " + (l.farePaid === 0 && l.fare > 0 ? "tanpa bayar lagi" : fareText(l.farePaid, l.farePaid)) });
         t += l.min;
-        steps.push({ kind: "stop", color: l.line.color, time: clock(addMin(dep, t)), title: l.to, sub: "Turun di sini" });
+        steps.push({ kind: "stop", color: lc(l), time: clock(addMin(dep, t)), title: l.to, sub: "Turun di sini" });
       }
     });
     steps.push({ kind: "dest", color: "#38BDF8", time: clock(addMin(dep, it.min)), title: S.to.name, sub: "Sampai tujuan" });
@@ -1219,8 +1256,8 @@
     rides.forEach(function (l) {
       var w = Math.max(90, (sw - (rides.length - 1) * 10) * Math.max(4, l.min) / tot);
       w = Math.min(w, sx + sw - gx);
-      ctx.fillStyle = l.type === "ojol" ? "#00AA13" : l.line.color; rr(ctx, gx, sy, w, 54, 16); ctx.fill();
-      ctx.fillStyle = l.type === "ojol" ? "#fff" : textColor(l.line.color); ctx.font = "800 28px " + F; ctx.textAlign = "center";
+      ctx.fillStyle = l.type === "ojol" ? "#00AA13" : lc(l); rr(ctx, gx, sy, w, 54, 16); ctx.fill();
+      ctx.fillStyle = l.type === "ojol" ? "#fff" : textColor(lc(l)); ctx.font = "800 28px " + F; ctx.textAlign = "center";
       ctx.fillText(l.type === "ojol" ? "Ojol" : l.line.code, gx + w / 2, sy + 37); ctx.textAlign = "left";
       gx += w + 10;
     });
@@ -1306,6 +1343,7 @@
     ready.then(go, go);
   }
   window.__lumiTripImage = function (i) { return tripImage(S.results[i]); };   // untuk pengujian
+  window.__lumiOpenTrip = function (it, f, t) { if (f) S.from = f; if (t) S.to = t; S.dep = S.dep || new Date(); S.results = [colorize(it)]; openTrip(it); };   // untuk pengujian
   $("#btnShare").addEventListener("click", function () { shareTrip(S.openTrip); });
   $$("[data-close]").forEach(function (b) { b.addEventListener("click", function () { b.closest(".sheet").hidden = true; }); });
 
@@ -1330,8 +1368,12 @@
     if (l.mode === "ROYAL") return l.cat === "JABODETABEK" ? "Transjabodetabek" : "Royaltrans";
     return MODES[l.mode].label;
   }
+  // Urutan kelompok tetap (tiap kelompok punya peringkat sendiri, tidak saling bercampur).
+  var GROUP_RANK = ["Transjakarta · koridor utama (24 jam)", "Transjakarta · lintas koridor BRT", "Transjakarta · angkutan pengumpan",
+    "Transjakarta · angkutan rusun", "Transjakarta · bus wisata", "Mikrotrans", "Royaltrans", "Transjabodetabek"];
   function sortKey(l) {
-    var g = l.mode === "TJ" ? (l.brt ? (l.main ? 0 : 1) : ({ RUSUN: 11, WISATA: 12 }[l.cat] || 10)) : ORDER[l.mode] + 1 + (l.cat === "JABODETABEK" ? 0.5 : 0);
+    var gn = groupName(l), g = GROUP_RANK.indexOf(gn);
+    if (g < 0) g = 20 + (ORDER[l.mode] != null ? ORDER[l.mode] : 15);
     var n = parseInt(String(l.code).replace(/\D/g, ""), 10); if (isNaN(n)) n = 999;
     return [g, n, l.code];
   }
@@ -1472,7 +1514,7 @@
           return '<li data-bus="' + esc(b.key) + '"><span class="bus-dot" style="--c:' + line.color + '"></span><div><b>Menuju ' + esc(b.head || "-") + "</b><span>" +
             (ns ? "Berikutnya " + esc(ns.name) + " · " + fmtEta(ns.eta) : "Bus " + esc(b.key)) + "</span></div><em>" + esc(b.key) + "</em></li>";
         }).join("") : '<li class="muted">' + (LumiLive.state() === "connected" ? "Belum ada bus " + esc(line.code) + " yang mengirim posisi. Mungkin di luar jam operasi." :
-          /error|reconnecting/.test(LumiLive.state()) ? "Belum bisa terhubung ke data armada." + (LumiLive.lastError() ? " (" + esc(LumiLive.lastError()) + ")" : "") + ' <button class="st-toggle" data-tjapp>Lihat di aplikasi TJ</button>' :
+          /error|reconnecting|denied/.test(LumiLive.state()) ? "Belum bisa terhubung ke data armada." + (LumiLive.lastError() ? " (" + esc(LumiLive.lastError()) + ")" : "") + ' <button class="st-toggle" data-tjapp>Lihat di aplikasi TJ</button>' :
           "Menghubungkan ke data armada…") + "</li>";
         bindTjApp($("#lineLiveList"));
         $$("[data-bus]", $("#lineLiveList")).forEach(function (li) {
@@ -1531,7 +1573,7 @@
       "<li>Urutan stasiun KRL, MRT, LRT, KA Bandara: Wikipedia & pengumuman operator (2026).</li>" +
       "<li>Peta: © OpenStreetMap contributors, © CARTO (Basemaps). Alamat: Google Maps (dibagikan ke Lumi). Jarak jalan untuk ojol: OSRM.</li></ul>" +
       "<p>Data mencakup " + (c.TJ || 0) + " rute Transjakarta, " + (c.MIKRO || 0) + " Mikrotrans, " + (c.ROYAL || 0) + " Royaltrans, " + (c.KRL || 0) + " lintas KRL, MRT, " + ((c.LRT || 0) + (c.LRTJ || 0)) + " lintas LRT, KA Bandara, dan Whoosh.</p></div>";
-    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.4. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
+    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.5. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
     $("#infoBody").innerHTML = html;
     $$("#infoBody [data-url]").forEach(function (a) { a.addEventListener("click", function () { NATIVE ? NATIVE.openUrl(a.dataset.url) : window.open(a.dataset.url); }); });
   }
