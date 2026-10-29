@@ -166,7 +166,7 @@
           var lb = lines[b.li];
           var km = hav(a.p, b.p);
           // Pindah antar bus boleh jalan kaki sampai ±500 m (mis. halte Makasar → Jasa Marga untuk JAK36/JAK108).
-          var maxKm = 0.5;
+          var maxKm = (RAIL[la.mode] || RAIL[lb.mode]) ? 0.5 : 0.45;
           if (km > maxKm) continue;
           // simpul akhir rute tidak bisa dinaiki lagi
           if (b.k === lb.dirs[b.di].s.length - 1) continue;
@@ -179,13 +179,25 @@
       // yang lewat Tamini dua kali) simpan juga simpul di bagian lain rute (urutan halte berjauhan).
       for (var k2 in best) {
         var arr = best[k2].sort(function (p, q) { return p[1] - q[1]; }), picked = [];
-        for (var q = 0; q < arr.length && picked.length < 3; q++) {
+        for (var q = 0; q < arr.length && picked.length < 2; q++) {
           if (picked.every(function (pp) { return Math.abs(pp[2] - arr[q][2]) > 3; })) picked.push(arr[q]);
         }
         picked.forEach(function (pp) { adj[i].push([pp[0], pp[1], 1]); });
       }
     });
     this.nodes = nodes; this.adj = adj;
+    // Graf padat (CSR) + atribut simpul dalam array bertipe: jauh lebih cepat untuk Dijkstra/A*.
+    var N = nodes.length, M = 0;
+    for (var a1 = 0; a1 < N; a1++) M += adj[a1].length;
+    var cs = new Int32Array(N + 1), ct = new Int32Array(M), cw = new Float32Array(M), cty = new Uint8Array(M), pos = 0;
+    var nli = new Int32Array(N), ndi = new Int32Array(N);
+    for (var a2 = 0; a2 < N; a2++) {
+      cs[a2] = pos; nli[a2] = nodes[a2].li; ndi[a2] = nodes[a2].di;
+      var ea = adj[a2];
+      for (var a3 = 0; a3 < ea.length; a3++) { ct[pos] = ea[a3][0]; cw[pos] = ea[a3][1]; cty[pos] = ea[a3][2]; pos++; }
+    }
+    cs[N] = pos;
+    this.csrStart = cs; this.csrTo = ct; this.csrW = cw; this.csrT = cty; this.nodeLi = nli; this.nodeDi = ndi;
     // Halte BRT (tertutup, ada gerbang tap) = semua pemberhentian rute BRT.
     var hg = {};
     nodes.forEach(function (nd) {
@@ -252,10 +264,22 @@
     var baseAllow = opts.allow || function () { return true; };
     var ban = opts.ban || null;
     var allow = baseAllow;
-    var nodesRef = this.nodes;
-    // ban berlaku per rute+arah/varian ("li:di"), sehingga varian lain (mis. 9 via tol) tetap bisa dipakai.
-    function bannedNode(i) { if (!ban) return false; var nd = nodesRef[i]; return !!(ban[nd.li + ":" + nd.di] || ban[nd.li]); }
+    var nodesRef = this.nodes, NLI = this.nodeLi, NDI = this.nodeDi, LINES = this.lines;
+    // Larangan per rute ("li") atau per rute+arah ("li:di"), dipra-hitung ke array.
+    var banLi = null, banDir = null;
+    if (ban) {
+      banLi = new Uint8Array(LINES.length);
+      Object.keys(ban).forEach(function (k) { if (k.indexOf(":") < 0) banLi[+k] = 1; else (banDir = banDir || {})[k] = 1; });
+    }
+    function bannedNode(i) { if (!ban) return false; return banLi[NLI[i]] === 1 || (banDir !== null && banDir[NLI[i] + ":" + NDI[i]] === 1); }
+    var allowLi = new Uint8Array(LINES.length);
+    for (var al = 0; al < LINES.length; al++) allowLi[al] = allow(LINES[al]) ? 1 : 0;
     var dist = new Float64Array(N + 1).fill(Infinity);
+    // A*: perkiraan sisa waktu = jarak lurus ke tujuan / 60 km/jam (selalu ≤ waktu sebenarnya,
+    // karena tidak ada moda yang dipakai di dalam kota lebih cepat dari 60 km/jam). Whoosh: tanpa heuristik.
+    var useH = !(opts.allow && opts.allow({ mode: "WHOOSH" })) || hav(from, to) <= 60;
+    var nodesH = this.nodes;
+    function hcost(i) { return useH ? hav(nodesH[i].p, to) : 0; }
     var prev = new Int32Array(N + 1).fill(-1);
     var prevType = new Int8Array(N + 1);
     var h = new Heap();
@@ -282,7 +306,7 @@
       var arrive = ac.t + (ac.mode === "ojol" ? 6 : 0);
       if (!openAt(l, dep + arrive)) return;
       var c = arrive + waitAt(l, dep + arrive);
-      if (c < dist[e[0]]) { dist[e[0]] = c; prev[e[0]] = -2; h.push([c, e[0]]); }
+      if (c < dist[e[0]]) { dist[e[0]] = c; prev[e[0]] = -2; h.push([c + hcost(e[0]), e[0], c]); }
     });
     var endMap = {};
     var endR = reachKm;
@@ -294,28 +318,30 @@
     });
 
     while (h.a.length) {
-      var top = h.pop(), c = top[0], u = top[1];
+      var top = h.pop(), c = top[2], u = top[1];
       if (c > dist[u]) continue;
       if (u === TARGET) break;
       if (endMap[u] !== undefined) {
         var nc = c + endMap[u];
-        if (nc < dist[TARGET]) { dist[TARGET] = nc; prev[TARGET] = u; h.push([nc, TARGET]); }
+        if (nc < dist[TARGET]) { dist[TARGET] = nc; prev[TARGET] = u; h.push([nc, TARGET, nc]); }
       }
-      var edges = this.adj[u];
-      for (var i = 0; i < edges.length; i++) {
-        var e = edges[i], v = e[0];
-        var lv = this.lines[this.nodes[v].li];
-        if (!allow(lv)) continue;
-        if (ban && e[2] === 1 && bannedNode(v)) continue;
-        // Harus naik minimal 1 pemberhentian sebelum pindah (hindari "naik" 0 halte).
-        if (e[2] === 1 && (prev[u] < 0 || prevType[u] === 1)) continue;
-        if (opts.avoid && opts.avoid[this.nodes[v].li] && e[2] === 1) continue;
-        var cost = c + e[1] + (e[2] === 1 ? tp + (ww - 1) * Math.max(0, e[1] - 3) : 0);
-        if (e[2] === 1) {
+      var CS = this.csrStart, CT = this.csrTo, CW = this.csrW, CTY = this.csrT;
+      var canTransfer = !(prev[u] < 0 || prevType[u] === 1);   // harus naik ≥1 pemberhentian sebelum pindah
+      for (var i = CS[u], iEnd = CS[u + 1]; i < iEnd; i++) {
+        var v = CT[i], typ = CTY[i], w = CW[i], lvi = NLI[v];
+        if (allowLi[lvi] === 0) continue;
+        if (typ === 1) {
+          if (!canTransfer) continue;
+          if (ban && bannedNode(v)) continue;
+          if (opts.avoid && opts.avoid[lvi]) continue;
+        }
+        var cost = c + w + (typ === 1 ? tp + (ww - 1) * Math.max(0, w - 3) : 0);
+        if (typ === 1) {
+          var lv = LINES[lvi];
           if (!openAt(lv, dep + cost)) continue;
           cost += waitAt(lv, dep + cost);
         }
-        if (cost < dist[v]) { dist[v] = cost; prev[v] = u; prevType[v] = e[2]; h.push([cost, v]); }
+        if (cost < dist[v]) { dist[v] = cost; prev[v] = u; prevType[v] = typ; h.push([cost + hcost(v), v, cost]); }
       }
     }
     if (dist[TARGET] === Infinity) return null;
@@ -489,7 +515,7 @@
       function hasOj(r) { return r.legs.some(function (l) { return l.type === "ojol"; }); }
       var queue = results.filter(function (r) { return !hasOj(r); }).sort(function (x, y) { return x.min - y.min; });
       queue.forEach(function (r) { r._ban = {}; });
-      var triedBan = {}, budget = 55, qi = 0;
+      var triedBan = {}, budget = 24, qi = 0;
       while (qi < queue.length && budget > 0) {
         var base = queue[qi++];
         var rides = base.legs.filter(function (l) { return l.type === "ride"; });

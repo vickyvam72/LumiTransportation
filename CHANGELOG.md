@@ -10,6 +10,34 @@
 
 ---
 
+## ✦ v2.2 — 29 Oktober 2026 / 29 October 2026
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+### 🐞 Perbaikan
+
+- Bus langsung tersambung lewat koneksi native Android; bila gagal, tampil penyebab dan tombol **Lihat di aplikasi TJ**
+- Pola memutar di GTFS resmi (184 dari 240 rute) dipecah menjadi dua arah utama; pola lain menjadi varian berketerangan
+
+### ⚡ Peningkatan
+
+- Pencarian rute 3–7× lebih cepat dengan data resmi
+- Pemantau perubahan rute (GitHub Actions) aktif dan mencatat status; ringkasan GTFS di cabang `gtfs-data`
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+- Live buses connect via a native Android connection, with a clear error and an **Open TJ app** fallback
+- Loop-shaped official GTFS patterns split into two main directions with described variants
+- Route search 3–7× faster; route-change watcher running with status file and `gtfs-data` branch
+
+</details>
+
+---
+
 ## ✦ v2.1 — 29 Oktober 2026 / 29 October 2026
 
 <details open>

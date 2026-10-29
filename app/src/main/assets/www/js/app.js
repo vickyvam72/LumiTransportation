@@ -66,48 +66,65 @@
       var hk = main ? "MAIN" : M24[code] ? "M24" : mode === "ROYAL" ? "ROYAL" : cat === "WISATA" ? "WISATA" : "DAY";
       var dirs = (r.dirs || []).filter(function (d) { return d.s && d.s.length >= 2; });
       if (!dirs.length) return;
-      // Pola utama dulu; varian hanya disimpan bila benar-benar beda (melewati/menambah halte),
-      // bukan sekadar perjalanan pendek (potongan dari pola utama).
-      var mainsD = dirs.filter(function (d) { return d.main !== false; });
-      if (!mainsD.length) mainsD = [dirs[0]];
+      // GTFS resmi sering menyimpan satu perjalanan pulang-pergi sebagai satu pola memutar
+      // (mis. 9: Pluit → Cawang → Pluit; JAK.36: Cilangkap → PGC → Cilangkap). Semua pola memutar
+      // dipecah di titik balik, lalu dipilih dua arah utama yang saling berlawanan; pola lain jadi varian.
       function names(d) { return d.s.map(function (x) { return x.n; }); }
-      function isSlice(sub, full) {
-        var a = sub.join("\u0001"), b = full.join("\u0001");
-        return b.indexOf(a) >= 0;
-      }
+      function isSlice(sub, full) { return full.join("\u0001").indexOf(sub.join("\u0001")) >= 0; }
+      function near(a, b) { return a.n === b.n || hav2(a.p, b.p) < 0.6; }
+      var exp = [];
+      dirs.forEach(function (d, i) {
+        var parts = isLoop(d) ? splitLoop(d) : [d];
+        parts.forEach(function (h, j) {
+          exp.push({ h: h.h || d.h, dir: String(d.dir || "0") + (parts.length > 1 ? (j ? "b" : "a") : ""), main: d.main !== false,
+            s: h.s, shape: h.shape !== undefined ? h.shape : d.shape, ord: i });
+        });
+      });
+      // buang pola duplikat (urutan halte sama)
+      var seenSeq = {};
+      exp = exp.filter(function (d) { var k = names(d).join("\u0001"); if (seenSeq[k]) return false; seenSeq[k] = 1; return true; });
+      exp.sort(function (x, y) { return (y.s.length - x.s.length) || ((y.main ? 1 : 0) - (x.main ? 1 : 0)) || (x.ord - y.ord); });
+      // Arah utama A = pola terpanjang; B = pola terpanjang yang berangkat dari ujung A (arah sebaliknya).
+      var A = exp[0];
+      function nearKm(a, b, km) { return a.n === b.n || hav2(a.p, b.p) < km; }
+      var B = exp.filter(function (d) { return d !== A && nearKm(d.s[0], A.s[A.s.length - 1], 0.6) && nearKm(d.s[d.s.length - 1], A.s[0], 0.6); })[0] ||
+              exp.filter(function (d) { return d !== A && nearKm(d.s[0], A.s[A.s.length - 1], 1.2); })[0] ||
+              exp.filter(function (d) { return d !== A && nearKm(d.s[d.s.length - 1], A.s[0], 1.2); })[0] || null;
+      var mainsD = B ? [A, B] : [A];
       var variants = [];
-      dirs.forEach(function (d) {
+      exp.forEach(function (d) {
         if (mainsD.indexOf(d) >= 0) return;
         var nm = names(d);
         if (mainsD.some(function (m) { return isSlice(nm, names(m)); })) return;
-        var base = mainsD.filter(function (m) { return m.dir === d.dir; })[0] || mainsD[0];
+        var vEnd = d.s[d.s.length - 1], vBeg = d.s[0];
+        var base = mainsD.filter(function (m) { return near(m.s[m.s.length - 1], vEnd); })[0] ||
+                   mainsD.filter(function (m) { return near(m.s[0], vBeg); })[0] || A;
         var bn = names(base);
         var skip = bn.filter(function (x) { return nm.indexOf(x) < 0 && bn.indexOf(x) > bn.indexOf(nm[0]) && bn.indexOf(x) < bn.indexOf(nm[nm.length - 1]); });
         var extra = nm.filter(function (x) { return bn.indexOf(x) < 0; });
-        if (!skip.length && !extra.length) return;
+        var isTol = /tol/i.test(d.h || "");
         var parts = [];
         if (skip.length) parts.push("tidak berhenti di " + skip.slice(0, 3).join(", ") + (skip.length > 3 ? " dll." : ""));
         if (extra.length) parts.push("lewat " + extra.slice(0, 3).join(", ") + (extra.length > 3 ? " dll." : ""));
-        var isTol = /tol/i.test(d.h || "");
-        d.v = (isTol ? "Via Tol: " : "Varian: ") + parts.join("; ");
-        // keterangan singkat untuk tombol arah (mis. "via Tol", "s.d. Harmoni", "lewat Senen", "tanpa Grogol")
         var bLast = bn[bn.length - 1], vLast = nm[nm.length - 1], vFirst = nm[0];
         var vp = [];
         if (isTol) vp.push("via Tol");
-        if (vFirst !== bn[0]) vp.push("mulai " + vFirst);
-        if (extra.length) vp.push("lewat " + extra[0] + (extra.length > 1 ? " dll." : ""));
+        if (!near(vBeg, base.s[0])) vp.push("mulai " + vFirst);
+        var ex2 = extra.filter(function (x) { return x !== vFirst && x !== vLast; });
+        if (ex2.length) vp.push("lewat " + ex2[0] + (ex2.length > 1 ? " dll." : ""));
         if (skip.length && !isTol) vp.push("tanpa " + skip[0] + (skip.length > 1 ? " dll." : ""));
-        if (!vp.length && vLast !== bLast) vp.push("putar balik di " + vLast);   // arah tombol sudah "Arah <vLast>"
-        d.vs = vp.slice(0, 2).join(" · ") || "pola lain";
+        if (!near(vEnd, base.s[base.s.length - 1])) vp.push("s.d. " + vLast);
+        if (!vp.length) return;                               // tidak ada beda yang berarti
+        d.v = (isTol ? "Via Tol: " : "Varian: ") + (parts.join("; ") || vp.join(", "));
+        d.vs = vp.slice(0, 2).join(" · ");
+        d.vbase = mainsD.indexOf(base);
         variants.push(d);
       });
-      // Hilangkan varian dengan keterangan sama (cukup satu per jenis)
+      // satu varian per keterangan, urut sesuai arah utamanya
       var seenVs = {};
-      variants = variants.filter(function (d) { var k = d.dir + "|" + d.vs; if (seenVs[k]) return false; seenVs[k] = 1; return true; });
-      // Rute memutar dengan satu pola utama (mis. 9N Pinang Ranti → Simpang Cawang → Pinang Ranti):
-      // pecah menjadi dua arah di titik balik, bukan "arah balik" yang dibalik.
-      if (mainsD.length === 1 && isLoop(mainsD[0])) mainsD = splitLoop(mainsD[0]);
-      dirs = mainsD.concat(variants.slice(0, 6));
+      variants = variants.filter(function (d) { var k = d.vbase + "|" + d.vs; if (seenVs[k]) return false; seenVs[k] = 1; return true; });
+      variants.sort(function (x, y) { return (x.vbase - y.vbase) || (y.s.length - x.s.length); });
+      dirs = mainsD.concat(variants.slice(0, 6)).map(function (d) { return { h: d.h, dir: d.dir, main: mainsD.indexOf(d) >= 0, s: d.s, shape: d.shape, v: d.v, vs: d.vs }; });
       if (dirs.length === 1) dirs.push({ h: "Arah balik", s: dirs[0].s.slice().reverse(), shape: dirs[0].shape ? dirs[0].shape.slice().reverse() : null });
       var color = r.color && /^[0-9A-Fa-f]{6}$/.test(r.color) ? "#" + r.color : (old && old.color) || MAINC[(code.match(/\d+/) || [""])[0]] || "#8D8482";
       if (brt && MAINC[code]) color = MAINC[code];
@@ -128,6 +145,7 @@
     ROUTE_SRC = { kind: "gtfs", date: g.date, count: g.lines.length };
   })();
   var planner = new E.Planner(DATA);
+  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; } };   // untuk pengujian
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var NATIVE = window.LumiNative || null;
@@ -244,6 +262,18 @@
     return st === "connected" ? (n ? n + " bus aktif" : "Terhubung · menunggu data bus…") : st === "connecting" ? "Menghubungkan…" :
       st === "reconnecting" ? "Menyambung ulang…" : st === "error" ? "Gagal terhubung" : "";
   }
+  /* Penjelasan gagal + jalan keluar (buka aplikasi resmi TJ). */
+  function liveFailHTML() {
+    var why = LumiLive.lastError();
+    return '<div class="live-card"><b>Belum bisa terhubung ke data armada</b><p>Lumi akan mencoba lagi otomatis.' +
+      (why ? ' <span class="live-why">Detail: ' + esc(why) + "</span>" : "") + "</p>" +
+      '<div class="btn-row"><button class="btn-sec" data-tjapp>Lihat di aplikasi TJ</button></div></div>';
+  }
+  function bindTjApp(root) {
+    $$("[data-tjapp]", root).forEach(function (b) {
+      b.addEventListener("click", function () { if (NATIVE && NATIVE.openTjApp) NATIVE.openTjApp(); else openApp("com.transjakmobile"); });
+    });
+  }
   /* Satu "papan" bus langsung pada sebuah peta: menyimpan bus, menggambar marker, membuang data basi. */
   function LiveBoard(map, codes, colorOf, onUpdate) {
     var buses = {}, markers = {}, layer = L.layerGroup().addTo(map), self = this;
@@ -310,8 +340,8 @@
         bs.sort(function (a, b) { return a.dist - b.dist; });
         $("#liveNearStatus").textContent = liveStatusText(st, bs.length);
         var html = '<div class="live-routes">' + list.map(function (x) { return badge(x.l, "sm"); }).join("") + "</div>";
-        if (!bs.length) html += '<div class="live-card"><b>' + (st === "error" || st === "reconnecting" ? "Belum bisa terhubung ke data armada" : "Menunggu posisi bus…") + "</b><p>" +
-          (st === "error" || st === "reconnecting" ? "Cek koneksi internet. Lumi akan mencoba lagi otomatis." : "Data muncul begitu bus mengirim posisi (biasanya beberapa detik).") + "</p></div>";
+        if (!bs.length) html += st === "error" || st === "reconnecting" ? liveFailHTML() :
+          '<div class="live-card"><b>Menunggu posisi bus…</b><p>Data muncul begitu bus mengirim posisi (biasanya beberapa detik).</p></div>';
         html += '<ul class="bus-list">' + bs.slice(0, 30).map(function (b) {
           var ns = nextStop(b), l = planner.searchLines(b.code)[0];
           return '<li data-bus="' + esc(b.key) + '"><span class="badge sm" style="background:' + (colors[LumiLive.norm(b.code)] || "#1565D8") + ';color:#fff">' + esc(b.code) + "</span>" +
@@ -320,6 +350,7 @@
         }).join("") + "</ul>";
         html += '<p class="disclaim">Posisi dari feed armada Transjakarta (diperbarui tiap beberapa detik). Lumi tidak berafiliasi dengan Transjakarta.</p>';
         $("#liveBody").innerHTML = html;
+        bindTjApp($("#liveBody"));
         $$("[data-bus]", $("#liveBody")).forEach(function (li) {
           li.addEventListener("click", function () { var b = nearBoard.buses[li.dataset.bus]; if (b) liveMap.setView([b.lat, b.lon], 17); });
         });
@@ -1439,7 +1470,10 @@
           var ns = nextStop(b);
           return '<li data-bus="' + esc(b.key) + '"><span class="bus-dot" style="--c:' + line.color + '"></span><div><b>Menuju ' + esc(b.head || "-") + "</b><span>" +
             (ns ? "Berikutnya " + esc(ns.name) + " · " + fmtEta(ns.eta) : "Bus " + esc(b.key)) + "</span></div><em>" + esc(b.key) + "</em></li>";
-        }).join("") : '<li class="muted">' + (LumiLive.state() === "connected" ? "Belum ada bus " + esc(line.code) + " yang mengirim posisi. Mungkin di luar jam operasi." : "Menghubungkan ke data armada…") + "</li>";
+        }).join("") : '<li class="muted">' + (LumiLive.state() === "connected" ? "Belum ada bus " + esc(line.code) + " yang mengirim posisi. Mungkin di luar jam operasi." :
+          /error|reconnecting/.test(LumiLive.state()) ? "Belum bisa terhubung ke data armada." + (LumiLive.lastError() ? " (" + esc(LumiLive.lastError()) + ")" : "") + ' <button class="st-toggle" data-tjapp>Lihat di aplikasi TJ</button>' :
+          "Menghubungkan ke data armada…") + "</li>";
+        bindTjApp($("#lineLiveList"));
         $$("[data-bus]", $("#lineLiveList")).forEach(function (li) {
           li.addEventListener("click", function () { var b = lineBoard.buses[li.dataset.bus]; if (b) { lineMap.setView([b.lat, b.lon], 16); $("#lineBody").scrollTop = 0; } });
         });
@@ -1495,7 +1529,7 @@
       "<li>Urutan stasiun KRL, MRT, LRT, KA Bandara: Wikipedia & pengumuman operator (2026).</li>" +
       "<li>Peta: © OpenStreetMap contributors, © CARTO (Basemaps). Alamat: Google Maps (dibagikan ke Lumi). Jarak jalan untuk ojol: OSRM.</li></ul>" +
       "<p>Data mencakup " + (c.TJ || 0) + " rute Transjakarta, " + (c.MIKRO || 0) + " Mikrotrans, " + (c.ROYAL || 0) + " Royaltrans, " + (c.KRL || 0) + " lintas KRL, MRT, " + ((c.LRT || 0) + (c.LRTJ || 0)) + " lintas LRT, KA Bandara, dan Whoosh.</p></div>";
-    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.1. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
+    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.2. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
     $("#infoBody").innerHTML = html;
     $$("#infoBody [data-url]").forEach(function (a) { a.addEventListener("click", function () { NATIVE ? NATIVE.openUrl(a.dataset.url) : window.open(a.dataset.url); }); });
   }

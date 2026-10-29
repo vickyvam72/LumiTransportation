@@ -84,6 +84,7 @@
 - **Detail rute**: semua bus rute itu di peta, yang searah dengan arah pilihanmu tampil paling atas
 - **Detail perjalanan**: *"Bus 9C berikutnya tiba di Pancoran Tugu ±4 mnt"* untuk setiap ruas bus, hanya menghitung bus yang memang menuju halte turunmu
 - Hemat kuota: Lumi hanya berlangganan rute yang sedang kamu lihat, dan berhenti saat layar ditutup
+- Bila data armada tidak bisa dijangkau, Lumi menampilkan penyebabnya dan tombol **Lihat di aplikasi TJ**
 
 **🎯 Filter hasil**
 - Urutan: **Rekomendasi · Tercepat · Termurah · Minim transit**
@@ -165,7 +166,7 @@ Diperbarui **29 Oktober 2026**. Tarif adalah perkiraan; selalu cek pengumuman op
 ## ⬇️ Unduh & Pasang
 
 1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)**.
-2. Di bagian **Assets**, unduh `LumiTransportation-v2.1.apk`.
+2. Di bagian **Assets**, unduh `LumiTransportation-v2.2.apk`.
 3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
 4. Tekan **Instal**. Selesai! 🎉
 
@@ -266,7 +267,7 @@ Tarif adalah perkiraan berdasarkan aturan yang diumumkan (lihat [Tarif yang dipa
 | Peta | **Leaflet** + CARTO Basemaps (OpenStreetMap) |
 | Mesin rute | Graf multimoda + Dijkstra + enumerasi kombinasi (`engine.js`), berjalan offline |
 | Data rute | GTFS resmi Transjakarta (diproses di HP oleh `GtfsImporter.java`) |
-| Bus langsung | Klien MQTT 3.1.1 mini di atas WebSocket (`live.js`), tanpa library tambahan |
+| Bus langsung | WebSocket native (`LiveSocket.java`) + klien MQTT 3.1.1 mini (`live.js`), tanpa library tambahan |
 | Latar belakang | Foreground service (pendampingan GPS), JobScheduler (cek rute tiap jam & harian) |
 | CI/CD | GitHub Actions: build APK tiap push & pantau perubahan rute tiap jam |
 

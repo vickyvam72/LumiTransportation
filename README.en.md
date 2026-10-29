@@ -150,7 +150,7 @@ Sources are listed in the [Indonesian README](README.md#-tarif-yang-dipakai).
 ## ⬇️ Download & Install
 
 1. Open the **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)** page.
-2. Under **Assets**, download `LumiTransportation-v2.1.apk`.
+2. Under **Assets**, download `LumiTransportation-v2.2.apk`.
 3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
 4. Tap **Install**. Done! 🎉
 
@@ -239,7 +239,7 @@ Fares are estimates based on published rules (see [Fares used](#-fares-used)). P
 | Maps | **Leaflet** + CARTO Basemaps (OpenStreetMap) |
 | Routing | Multimodal graph + Dijkstra + combination search (`engine.js`), offline |
 | Route data | Official Transjakarta GTFS (processed on the phone by `GtfsImporter.java`) |
-| Live buses | Tiny MQTT 3.1.1 client over WebSocket (`live.js`), no extra libraries |
+| Live buses | Native WebSocket (`LiveSocket.java`) + tiny MQTT 3.1.1 client (`live.js`), no extra libraries |
 | Background | Foreground service (GPS guidance), JobScheduler (hourly and daily route checks) |
 | CI/CD | GitHub Actions: build the APK on every push and watch for route changes every hour |
 

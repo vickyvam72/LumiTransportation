@@ -51,6 +51,25 @@ public class MainActivity extends Activity {
     private String pendingLocateId;
     private String pendingShare;
     private boolean pageReady;
+    private final Object liveLock = new Object();
+    private LiveSocket live;
+    private final java.util.ArrayList<String> liveQueue = new java.util.ArrayList<String>();
+    private boolean liveFlushPending;
+
+    /** Kirim data bus ke JS paling sering tiap 250 ms (digabung) agar WebView tidak kewalahan. */
+    private void scheduleLiveFlush() {
+        synchronized (liveLock) { if (liveFlushPending) return; liveFlushPending = true; }
+        main.postDelayed(new Runnable() { @Override public void run() {
+            StringBuilder sb = new StringBuilder("[");
+            synchronized (liveLock) {
+                for (int i = 0; i < liveQueue.size(); i++) { if (i > 0) sb.append(','); sb.append('"').append(liveQueue.get(i)).append('"'); }
+                liveQueue.clear();
+                liveFlushPending = false;
+            }
+            sb.append(']');
+            if (web != null) web.evaluateJavascript("window.LumiLive && LumiLive.__nativeData(" + sb + ")", null);
+        }}, 250);
+    }
     private String[] pendingGuide;
 
     @Override
@@ -179,6 +198,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         NavService.listener = null;
+        synchronized (liveLock) { if (live != null) live.close(); live = null; }
         pool.shutdownNow();
         if (web != null) web.destroy();
         super.onDestroy();
@@ -715,9 +735,51 @@ public class MainActivity extends Activity {
             }});
         }
 
+        /* ---- posisi bus langsung: WebSocket native (byte MQTT diteruskan ke live.js) ---- */
+        @JavascriptInterface
+        public void liveOpen(final String url) {
+            synchronized (liveLock) {
+                if (live != null) live.close();
+                liveQueue.clear();
+                live = new LiveSocket(url, new LiveSocket.Listener() {
+                    public void onOpen() { js("window.LumiLive && LumiLive.__nativeOpen()"); }
+                    public void onData(byte[] d) {
+                        synchronized (liveLock) { liveQueue.add(android.util.Base64.encodeToString(d, android.util.Base64.NO_WRAP)); }
+                        scheduleLiveFlush();
+                    }
+                    public void onClose(String reason) { js("window.LumiLive && LumiLive.__nativeClose(" + JSONObject.quote(reason) + ")"); }
+                });
+                live.start();
+            }
+        }
+
+        @JavascriptInterface
+        public void liveSend(String b64) {
+            LiveSocket l = live;
+            if (l != null) l.send(android.util.Base64.decode(b64, android.util.Base64.NO_WRAP));
+        }
+
+        /** Buka aplikasi resmi TJ (pelacak bus resmi); bila belum terpasang, buka Play Store. */
+        @JavascriptInterface
+        public void openTjApp() {
+            main.post(new Runnable() { @Override public void run() {
+                for (String pkg : new String[]{"com.transjakmobile", "id.co.transjakarta.tije"}) {
+                    Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
+                    if (i != null) { startActivity(i); return; }
+                }
+                try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.transjakmobile"))); }
+                catch (ActivityNotFoundException e) { openExternal("https://play.google.com/store/apps/details?id=com.transjakmobile"); }
+            }});
+        }
+
+        @JavascriptInterface
+        public void liveClose() {
+            synchronized (liveLock) { if (live != null) live.close(); live = null; liveQueue.clear(); }
+        }
+
         @JavascriptInterface
         public String version() {
-            return "2.1";
+            return "2.2";
         }
     }
 }

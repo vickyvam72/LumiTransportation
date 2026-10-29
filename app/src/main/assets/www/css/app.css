@@ -589,3 +589,5 @@ details.adv summary { font-weight: 700; font-size: 13.5px; color: var(--ink-soft
 .l-name { align-items: flex-start; font-size: 14.5px; line-height: 1.28; white-space: normal; overflow: visible; }
 .l-name .l-nm { white-space: normal; overflow: visible; text-overflow: clip; }
 .l-name .l-24 { margin-top: 1px; }
+
+.live-why { display: block; margin-top: 4px; font-size: 11.5px; color: var(--faint); word-break: break-word; }

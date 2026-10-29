@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="id.lumi.transport"
-    android:versionCode="21"
-    android:versionName="2.1">
+    android:versionCode="22"
+    android:versionName="2.2">
 
     <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
 
@@ -29,6 +29,7 @@
         <package android:name="sinet.startup.inDriver" />
         <package android:name="com.kci.access" />
         <package android:name="id.co.transjakarta.tije" />
+        <package android:name="com.transjakmobile" />
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <data android:scheme="https" />
