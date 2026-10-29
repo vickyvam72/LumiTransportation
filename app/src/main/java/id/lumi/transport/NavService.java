@@ -178,6 +178,9 @@ public class NavService extends Service {
         running = false;
         if (lm != null && ll != null) try { lm.removeUpdates(ll); } catch (Exception ignored) { }
         lm = null;
+        // Pastikan notifikasi pendampingan hilang saat layanan berhenti.
+        try { stopForeground(true); } catch (Exception ignored) { }
+        try { ((NotificationManager) getSystemService(NOTIFICATION_SERVICE)).cancel(NOTIF_ID); } catch (Exception ignored) { }
         super.onDestroy();
     }
 

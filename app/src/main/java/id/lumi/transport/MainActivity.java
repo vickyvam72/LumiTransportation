@@ -148,6 +148,7 @@ public class MainActivity extends Activity {
         if (pageReady) js("window.__lumiPerm && __lumiPerm(); window.__lumiResume && __lumiResume()");   // kembali dari pengaturan HP
         updatePip(NavService.tracker != null);
         if (NavService.tracker != null) compassOn(true);
+        if (Build.VERSION.SDK_INT >= 26 && !isInPictureInPictureMode()) wasPip = false;   // kembali layar penuh
     }
 
     /* ---- mode PiP (jendela kecil) selama pendampingan ---- */
@@ -175,23 +176,43 @@ public class MainActivity extends Activity {
         // Android 8–11: tombol Home saat pendampingan → jendela kecil.
         if (Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT < 31 && NavService.tracker != null) enterPip();
     }
-    private long pipExitAt;
+    private long pipExitAt, stoppedAt;
+    private boolean stopped, wasPip;
+    @Override
+    protected void onStart() { super.onStart(); stopped = false; }
+    /*
+     * Jendela PiP ditutup (tombol × / diusap) = aplikasi ditutup: pendampingan berhenti dan tugas dihapus.
+     * Urutan callback berbeda antar-HP: kadang "keluar PiP" datang dulu lalu onStop, kadang onStop dulu.
+     * Keduanya ditangani. Membesarkan PiP ke layar penuh tidak memicu onStop, jadi tidak ikut tertutup;
+     * layar mati saat PiP juga tidak (masih dalam mode PiP).
+     */
     @Override
     public void onPictureInPictureModeChanged(boolean inPip, android.content.res.Configuration cfg) {
         super.onPictureInPictureModeChanged(inPip, cfg);
-        if (!inPip) pipExitAt = System.currentTimeMillis();
+        if (inPip) { wasPip = true; }
+        else {
+            pipExitAt = System.currentTimeMillis();
+            if (stopped && wasPip) { closeFromPip(); return; }
+        }
         js("window.__lumiPip && __lumiPip(" + inPip + ")");
+    }
+    private boolean closing;
+    private void closeFromPip() {
+        if (closing) return;
+        closing = true;
+        NavService.stop(this);
+        compassOn(false);
+        android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        try { if (nm != null) nm.cancel(NavService.NOTIF_ID); } catch (Exception ignored) { }
+        finishAndRemoveTask();
     }
     @Override
     protected void onStop() {
         super.onStop();
-        // Jendela PiP ditutup (tombol ×): keluar PiP lalu langsung berhenti, bukan kembali ke layar penuh.
-        // Saat layar mati dalam PiP, aplikasi masih dalam mode PiP, jadi tidak ikut tertutup.
-        if (Build.VERSION.SDK_INT >= 26 && !isChangingConfigurations() && !isInPictureInPictureMode()
-                && System.currentTimeMillis() - pipExitAt < 2000) {
-            NavService.stop(this);
-            compassOn(false);
-            finishAndRemoveTask();
+        stopped = true; stoppedAt = System.currentTimeMillis();
+        if (Build.VERSION.SDK_INT >= 26 && !isChangingConfigurations() && wasPip && !isInPictureInPictureMode()
+                && System.currentTimeMillis() - pipExitAt < 3000) {
+            closeFromPip();
             return;
         }
         // Tidak terlihat (bukan PiP): kompas dimatikan agar hemat baterai.
@@ -259,7 +280,7 @@ public class MainActivity extends Activity {
         NavService.listener = null;
         compassOn(false);
         // Aplikasi ditutup (bukan sekadar diputar/dibuat ulang) → pendampingan ikut berhenti.
-        if (isFinishing()) NavService.stop(this);
+        if (isFinishing() || wasPip) NavService.stop(this);
         pool.shutdownNow();
         if (web != null) web.destroy();
         super.onDestroy();

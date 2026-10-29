@@ -382,6 +382,7 @@
   function stopGuide() {
     try { NATIVE && NATIVE.stopGuide && NATIVE.stopGuide(); } catch (e) { }
     S.guide = null; store("guide", null);
+    dropPipMap();
     var g = $("#guide"); if (g) g.remove();
     $("#app").classList.remove("guiding");
     S.guideSt = null; compass(false); if ($("#btnRecenter")) recenterBtn(false);
@@ -541,14 +542,24 @@
   }
   var ICO_PIP = '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor"/></svg>';
   /* Mode PiP (jendela kecil) saat pendampingan: hanya kartu pendampingan yang tampil. */
+  function dropPipMap() {
+    if (!GT.pip.map) return;
+    var m = GT.pip.map; GT.pip.map = null; GT.pip.layer = null; GT.pip.me = null;
+    allMaps = allMaps.filter(function (x) { return x !== m; });
+    try { m.remove(); } catch (e) { }
+  }
   function refitMaps() {
     allMaps.forEach(function (m) { try { m.invalidateSize(false); } catch (e) { } });
     paintGuideMap(S.guideSt);
   }
   window.__lumiPip = function (on) {
     document.documentElement.classList.toggle("pip", !!on);
-    if (on && $("#guideMap") && !GT.pip.map) {
-      GT.pip.map = makeMap($("#guideMap"));
+    var el = $("#guideMap");
+    // Kartu pendampingan bisa dibuat ulang (pendampingan dihentikan lalu dimulai lagi): peta PiP harus
+    // menempel di kartu yang sekarang, bukan kartu lama yang sudah dibuang (penyebab layar biru).
+    if (GT.pip.map && GT.pip.map.getContainer() !== el) dropPipMap();
+    if (on && el && !GT.pip.map) {
+      GT.pip.map = makeMap(el);
       GT.pip.map.dragging.disable(); GT.pip.map.touchZoom.disable(); GT.pip.map.doubleClickZoom.disable();
     }
     // Ukuran jendela berubah bertahap saat masuk/keluar PiP: ukur ulang semua peta beberapa kali.
