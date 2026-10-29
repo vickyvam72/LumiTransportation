@@ -855,7 +855,15 @@
     res.innerHTML = html;
     $("#btnEdit").addEventListener("click", function () { S.field = "to"; inTo.focus(); });
     $("#btnClear").addEventListener("click", clearPlan);
-    if ($("#btnMore")) $("#btnMore").addEventListener("click", function () { S.showAll = true; renderResults(allResults, dep); });
+    // "Tampilkan semua": layar tetap di posisi tombol; opsi tambahan muncul di bawahnya.
+    if ($("#btnMore")) $("#btnMore").addEventListener("click", function () {
+      var tab = $("#tab-plan"), btnTop = this.getBoundingClientRect().top, keep = tab.scrollTop;
+      var firstNew = results.indexOf(transit[LIMIT]);
+      S.showAll = true; renderResults(allResults, dep);
+      tab.scrollTop = keep;
+      var el = $('.it[data-i="' + firstNew + '"]', res);
+      if (el) tab.scrollTop = keep + (el.getBoundingClientRect().top - btnTop);
+    });
     $$(".fbar .chip", res).forEach(function (c) {
       c.addEventListener("click", function () {
         if (c.dataset.sort) S.filt.sort = c.dataset.sort;
@@ -1396,7 +1404,7 @@
       "<li>Urutan stasiun KRL, MRT, LRT, KA Bandara: Wikipedia & pengumuman operator (2026).</li>" +
       "<li>Peta: © OpenStreetMap contributors, © CARTO (Basemaps). Alamat: Google Maps (dibagikan ke Lumi). Jarak jalan untuk ojol: OSRM.</li></ul>" +
       "<p>Data mencakup " + (c.TJ || 0) + " rute Transjakarta, " + (c.MIKRO || 0) + " Mikrotrans, " + (c.ROYAL || 0) + " Royaltrans, " + (c.KRL || 0) + " lintas KRL, MRT, " + ((c.LRT || 0) + (c.LRTJ || 0)) + " lintas LRT, KA Bandara, dan Whoosh.</p></div>";
-    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.6. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
+    html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.3. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
     $("#infoBody").innerHTML = html;
     $$("#infoBody [data-url]").forEach(function (a) { a.addEventListener("click", function () { NATIVE ? NATIVE.openUrl(a.dataset.url) : window.open(a.dataset.url); }); });
   }

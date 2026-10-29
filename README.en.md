@@ -148,7 +148,7 @@ Sources are listed in the [Indonesian README](README.md#-tarif-yang-dipakai).
 ## ⬇️ Download & Install
 
 1. Open the **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)** page.
-2. Under **Assets**, download `LumiTransportation-v2.6.apk`.
+2. Under **Assets**, download `LumiTransportation-v2.3.apk`.
 3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
 4. Tap **Install**. Done! 🎉
 

@@ -165,7 +165,7 @@ Diperbarui **29 Oktober 2026**. Tarif adalah perkiraan; selalu cek pengumuman op
 ## ⬇️ Unduh & Pasang
 
 1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)**.
-2. Di bagian **Assets**, unduh `LumiTransportation-v2.6.apk`.
+2. Di bagian **Assets**, unduh `LumiTransportation-v2.3.apk`.
 3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
 4. Tekan **Instal**. Selesai! 🎉
 

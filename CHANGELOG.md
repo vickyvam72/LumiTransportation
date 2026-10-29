@@ -10,12 +10,16 @@
 
 ---
 
-## ✦ v2.6 — 29 Oktober 2026 / 29 October 2026
+## ✦ v2.3 — 29 Oktober 2026 / 29 October 2026
 
 <details open>
 <summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
 
-- Tombol **Bersihkan** di hasil pencarian untuk kembali ke beranda
+- Tombol **Bersihkan** di hasil pencarian untuk kembali ke beranda; **Tampilkan semua opsi** tidak lagi melompat ke atas
+- Hasil rute tanpa pemborosan: rute sama dengan halte lebih jauh/lebih lama dibuang, rute bolak-balik dibuang
+- Warna pembeda untuk rute berturut-turut yang warnanya sama; teks pindah di halte yang sama menyebut rute berikutnya
+- Info rute dikelompokkan rapi (TJ, Mikrotrans, Royaltrans, Transjabodetabek, kereta)
+- Tarif LRT Jabodebek mengikuti jam: jam sibuk maks. Rp20.000, di luar jam sibuk & akhir pekan maks. Rp10.000
 - Fitur posisi bus di dalam Lumi dihapus; tiap ruas bus punya tombol **Lihat posisi bus di aplikasi TJ** (aplikasi TJ atau Play Store)
 
 </details>
@@ -23,70 +27,11 @@
 <details>
 <summary><h2>🇬🇧 English</h2></summary>
 
-- **Clear** button on results to return home
-- In-app live bus positions removed; each bus leg links to the official TJ app (or the Play Store)
-
-</details>
-
----
-
-## ✦ v2.5 — 29 Oktober 2026 / 29 October 2026
-
-<details open>
-<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
-
-- Warna pembeda untuk rute berturut-turut yang warnanya sama; teks pindah di halte yang sama menyebut rute berikutnya
-- Info rute dikelompokkan rapi (TJ, Mikrotrans, Royaltrans, Transjabodetabek, kereta)
-- Bus langsung: penjelasan jelas bila server menolak, tombol aplikasi TJ, coba lagi tiap 15 menit
-
-</details>
-
-<details>
-<summary><h2>🇬🇧 English</h2></summary>
-
-- Distinct colors for consecutive same-colored routes; clearer same-stop transfers
-- Route list grouped cleanly
-- Live buses: clear message when refused, TJ app button, retry every 15 minutes
-
-</details>
-
----
-
-## ✦ v2.4 — 29 Oktober 2026 / 29 October 2026
-
-<details open>
-<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
-
-- Hasil rute tanpa pemborosan: rute sama dengan halte lebih jauh/lebih lama dibuang, rute bolak-balik dibuang
-- Bus langsung: penyebab penolakan server ditampilkan dengan benar
-
-</details>
-
-<details>
-<summary><h2>🇬🇧 English</h2></summary>
-
+- **Clear** button on results; **Show all options** keeps your scroll position
 - No wasteful results: same-route options with worse stops and back-and-forth routes removed
-- Live buses: server refusal reason shown correctly
-
-</details>
-
----
-
-## ✦ v2.3 — 29 Oktober 2026 / 29 October 2026
-
-<details open>
-<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
-
-- Bus langsung: otomatis beralih ke topik umum bila langganan per rute diputus server; saringan rute di HP; penyebab gagal + tahapnya; info pemakaian kuota
-- Tarif LRT Jabodebek mengikuti jam: jam sibuk maks. Rp20.000, di luar jam sibuk & akhir pekan maks. Rp10.000
-
-</details>
-
-<details>
-<summary><h2>🇬🇧 English</h2></summary>
-
-- Live buses: automatic fallback to the general topic, on-phone route filtering, failure stage and data usage shown
+- Distinct colors for consecutive same-colored routes; clearer same-stop transfers; route list grouped cleanly
 - Time-based LRT Jabodebek fares (peak max Rp20,000, off-peak/weekend max Rp10,000)
+- In-app live bus positions removed; each bus leg links to the official TJ app (or the Play Store)
 
 </details>
 
