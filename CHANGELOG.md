@@ -15,6 +15,7 @@
 <details open>
 <summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
 
+- Pendampingan: rute yang sudah dilewati menghilang, jalan kaki dimulai dari posisimu sekarang, mode PiP, lokasi tidak hilang saat kartu diketuk, pop-up "GPS belum aktif"
 - Tombol **Bersihkan** di hasil pencarian untuk kembali ke beranda; **Tampilkan semua opsi** tidak lagi melompat ke atas
 - Hasil rute tanpa pemborosan: rute sama dengan halte lebih jauh/lebih lama dibuang, rute bolak-balik dibuang
 - Warna pembeda untuk rute berturut-turut yang warnanya sama; teks pindah di halte yang sama menyebut rute berikutnya
@@ -27,6 +28,7 @@
 <details>
 <summary><h2>🇬🇧 English</h2></summary>
 
+- Guidance: passed route disappears, walk starts from your current location, picture-in-picture, location dot kept, "GPS is off" prompt
 - **Clear** button on results; **Show all options** keeps your scroll position
 - No wasteful results: same-route options with worse stops and back-and-forth routes removed
 - Distinct colors for consecutive same-colored routes; clearer same-stop transfers; route list grouped cleanly

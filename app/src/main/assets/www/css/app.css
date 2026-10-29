@@ -601,3 +601,33 @@ details.adv summary { font-weight: 700; font-size: 13.5px; color: var(--ink-soft
 .l-name .l-24 { margin-top: 1px; }
 
 .live-why { display: block; margin-top: 4px; font-size: 11.5px; color: var(--faint); word-break: break-word; }
+
+/* ---- pendampingan: tombol PiP ---- */
+.guide-pip { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; padding: 7px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.22); color: #fff; font-weight: 800; font-size: 12.5px; }
+.guide-pip svg { width: 15px; height: 15px; }
+.guide-pip + .guide-stop { margin-left: 0; }
+
+/* ---- pop-up GPS belum aktif ---- */
+.gps-ask { position: absolute; inset: 0; z-index: 200; background: rgba(13, 30, 66, .45); display: flex; align-items: flex-end; justify-content: center;
+  padding: 16px 16px calc(16px + var(--safe-b)); animation: gpsFade .18s ease-out; }
+.gps-card { width: 100%; max-width: 420px; background: #fff; border-radius: 24px; padding: 22px 20px 14px; text-align: center; box-shadow: 0 20px 50px rgba(19,35,75,.3); }
+.gps-ico { width: 60px; height: 60px; margin: 0 auto 10px; border-radius: 18px; background: var(--grad); color: #fff; display: grid; place-items: center; }
+.gps-ico svg { width: 32px; height: 32px; }
+.gps-card h3 { margin: 4px 0 6px; font-size: 19px; letter-spacing: -0.02em; }
+.gps-card p { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.gps-card .btn-go { width: 100%; margin: 0; background: var(--grad); color: #fff; }
+.gps-later { width: 100%; margin-top: 6px; padding: 12px; color: var(--ink-soft); font-weight: 700; font-size: 14px; background: none; }
+@keyframes gpsFade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- mode PiP: hanya kartu pendampingan, memenuhi jendela kecil ---- */
+html.pip, html.pip body { background: #3A7BE4; }
+html.pip #app > :not(#guide), html.pip .toast, html.pip #onboard { display: none !important; }
+html.pip #guide { position: fixed; inset: 0; margin: 0; border-radius: 0; padding: 10px 12px; display: flex; flex-direction: column; justify-content: center; box-shadow: none; }
+html.pip .guide-top { display: none; }
+html.pip .guide-main { margin-top: 0; font-size: 15px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+html.pip .guide-sub { font-size: 11px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html.pip .guide-count { margin-top: 6px; gap: 6px; }
+html.pip .guide-count div { padding: 4px 8px; border-radius: 10px; }
+html.pip .guide-count b { font-size: 22px; }
+html.pip .guide-count span { font-size: 10px; }

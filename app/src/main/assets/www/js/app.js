@@ -243,7 +243,33 @@
   }
   var locCb = {};
   window.__lumiLocate = function (id, o) { var cb = locCb[id]; delete locCb[id]; if (cb) cb(o); };
+  /* ---- GPS mati → pop-up "Aktifkan GPS" (buka pengaturan Lokasi, lanjut otomatis saat kembali) ---- */
+  var gpsWait = null;
+  function gpsOff() { try { return !!(NATIVE && NATIVE.gpsOn && !NATIVE.gpsOn()); } catch (e) { return false; } }
+  function closeGpsAsk() { var m = $("#gpsAsk"); if (m) m.remove(); }
+  function ensureGps() {
+    return new Promise(function (resolve, reject) {
+      if (!gpsOff()) { resolve(); return; }
+      if (gpsWait) { try { gpsWait.reject(new Error("GPS belum aktif")); } catch (e) { } }
+      gpsWait = { resolve: resolve, reject: reject };
+      closeGpsAsk();
+      var m = document.createElement("div"); m.id = "gpsAsk"; m.className = "gps-ask"; m.setAttribute("role", "dialog"); m.setAttribute("aria-modal", "true");
+      m.innerHTML = '<div class="gps-card"><div class="gps-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="currentColor"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>' +
+        "<h3>GPS belum aktif</h3><p>Aktifkan Lokasi (GPS) di HP agar Lumi bisa menemukan posisimu untuk “Lokasi saya” dan mode pendampingan.</p>" +
+        '<button class="btn-go" id="gpsOn" type="button">Aktifkan GPS</button><button class="gps-later" id="gpsLater" type="button">Nanti saja</button></div>';
+      $("#app").appendChild(m);
+      $("#gpsOn").addEventListener("click", function () { if (NATIVE && NATIVE.openGpsSettings) NATIVE.openGpsSettings(); });
+      $("#gpsLater").addEventListener("click", function () { var w = gpsWait; gpsWait = null; closeGpsAsk(); if (w) w.reject(new Error("GPS belum aktif")); });
+    });
+  }
+  // dipanggil dari MainActivity.onResume (kembali dari pengaturan Lokasi)
+  window.__lumiResume = function () {
+    if (gpsWait && !gpsOff()) { var w = gpsWait; gpsWait = null; closeGpsAsk(); toast("GPS aktif"); w.resolve(); }
+  };
   function locate() {
+    return ensureGps().then(locateRaw);
+  }
+  function locateRaw() {
     return new Promise(function (resolve, reject) {
       if (NATIVE) {
         var id = "l" + Date.now(); locCb[id] = function (o) { o.error && !o.lat ? reject(new Error(o.error)) : resolve(o); };
@@ -342,21 +368,73 @@
   }
   function startGuide(it) {
     if (!NATIVE || !NATIVE.startGuide) { toast("Mode pendampingan hanya tersedia di aplikasi Android"); return; }
+    ensureGps().then(function () { startGuideNow(it); }, function (e) { toast(e.message || "GPS belum aktif"); });
+  }
+  function startGuideNow(it) {
     var spec = guideSpec(it);
     S.guide = { it: it, title: S.from.name + " → " + S.to.name, names: spec.split("\n").map(function (r) { return r.split("\t")[4]; }) };
     store("guide", { title: S.guide.title, names: S.guide.names });
     NATIVE.startGuide(spec, "Lumi · " + S.guide.title);
-    renderGuide({ phase: "start", title: "Mencari posisi GPS…", text: "Pastikan GPS/lokasi aktif. Kamu akan diberi tahu sebelum harus turun.", stopsLeft: -1, metersLeft: -1 });
+    guideFitted = false;
+    renderGuide({ phase: "walk", next: 0, cursor: -1, title: "Mencari posisi GPS…", text: "Kamu akan diberi tahu sebelum harus turun.", stopsLeft: -1, metersLeft: -1 });
+    if ($("#btnGuide")) $("#btnGuide").innerHTML = ICO_NAV + "Pendampingan sedang berjalan";
   }
   function stopGuide() {
     try { NATIVE && NATIVE.stopGuide && NATIVE.stopGuide(); } catch (e) { }
     S.guide = null; store("guide", null);
     var g = $("#guide"); if (g) g.remove();
     $("#app").classList.remove("guiding");
-    if (meMarker) { meMarker.remove(); meMarker = null; }
+    S.guideSt = null;
+    if (guideLayer) { guideLayer.remove(); guideLayer = null; }
+    if (tripMap && tripLayer && !tripMap.hasLayer(tripLayer)) tripLayer.addTo(tripMap);
     $$(".st-body.is-now").forEach(function (b) { b.classList.remove("is-now"); });
   }
-  var meMarker = null, alertTimer = null;
+  var alertTimer = null, guideLayer = null, guideFitted = false;
+  /*
+   * Peta saat pendampingan: hanya sisa perjalanan yang digambar. Garis & titik halte yang sudah dilewati
+   * hilang seiring perjalanan, dan langkah pertama selalu dimulai dari posisimu sekarang (bukan titik asal
+   * rencana), mis. rencana A→B tapi kamu sedang di C: garis jalan kaki C → halte naik.
+   */
+  function paintGuideMap(st) {
+    if (!tripMap || !S.guide || !S.guide.it || S.openTrip !== S.guide.it) return;
+    st = st || {};
+    var it = S.guide.it, rides = it.legs.filter(function (l) { return l.type === "ride"; });
+    if (!rides.length) return;
+    if (tripLayer && tripMap.hasLayer(tripLayer)) tripMap.removeLayer(tripLayer);
+    if (guideLayer) guideLayer.remove();
+    guideLayer = L.featureGroup().addTo(tripMap);
+    var me = st.lat ? [st.lat, st.lon] : S.myPos || null;
+    var off = [], n = 0;
+    rides.forEach(function (l) { off.push(n); n += l.stops.length; });
+    var dIdx = n, cur = st.cursor == null ? -1 : st.cursor, nxt = st.next == null ? 0 : st.next, phase = st.phase || "walk";
+    function legOf(i) { for (var q = rides.length - 1; q >= 0; q--) if (i >= off[q]) return q; return 0; }
+    function walk(a, b) { if (a && b) L.polyline([a, b], { color: "#6B7891", weight: 4, dashArray: "2 7", lineCap: "round" }).addTo(guideLayer); }
+    var riding = (phase === "ride" || phase === "wait") && cur >= 0 && cur < dIdx;
+    var startLeg = rides.length, startK = 0;
+    if (phase === "done") startLeg = rides.length;
+    else if (riding) { startLeg = legOf(cur); startK = cur - off[startLeg]; }
+    else {
+      if (nxt < dIdx) { startLeg = legOf(nxt); startK = 0; }
+      walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p);
+    }
+    for (var li = startLeg; li < rides.length; li++) {
+      var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride";
+      var fromP = onBus && me ? me : l.stops[k0].p;
+      var pts = shapeSlice(l.line, l.dirIndex, fromP, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
+      if (onBus && me) pts = [me].concat(pts);
+      L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(guideLayer);
+      L.polyline(pts, { color: lc(l), weight: 6 }).addTo(guideLayer);
+      for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
+        var mk = L.marker(l.stops[k].p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(guideLayer);
+        if (k === k0 || k === l.stops.length - 1) mk.bindTooltip(l.stops[k].n, { className: "lm-tip", direction: "top", offset: [0, -6] });
+      }
+      walk(l.stops[l.stops.length - 1].p, li + 1 < rides.length ? rides[li + 1].stops[0].p : S.to.p);
+    }
+    L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(guideLayer);
+    if (me) L.marker(me, { icon: L.divIcon({ className: "", html: '<div class="lm-me"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), zIndexOffset: 1000 }).addTo(guideLayer);
+    if (!guideFitted) { guideFitted = true; try { tripMap.fitBounds(guideLayer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
+    else if (me && !tripMap.getBounds().contains(me)) tripMap.panTo(me);
+  }
   function renderGuide(st) {
     var g = $("#guide");
     if (!g) {
@@ -364,6 +442,7 @@
       $("#app").appendChild(g);
       g.addEventListener("click", function (e) {
         if (e.target.closest(".guide-stop")) { e.stopPropagation(); stopGuide(); toast("Pendampingan dihentikan"); return; }
+        if (e.target.closest(".guide-pip")) { e.stopPropagation(); try { NATIVE.enterPip(); } catch (x) { } return; }
         if (S.guide && S.guide.it) openTrip(S.guide.it);
       });
     }
@@ -371,7 +450,8 @@
     var counts = "";
     if (st.stopsLeft >= 0) counts += '<div><b class="tnum">' + st.stopsLeft + "</b><span>pemberhentian lagi</span></div>";
     if (st.metersLeft >= 0) counts += '<div><b class="tnum">' + (st.metersLeft < 1000 ? Math.round(st.metersLeft / 10) * 10 + " m" : (st.metersLeft / 1000).toFixed(1).replace(".", ",") + " km") + "</b><span>jalan kaki lagi</span></div>";
-    g.innerHTML = '<div class="guide-top"><span class="guide-live">' + (st.done ? "SELESAI" : "PENDAMPINGAN") + '</span><button class="guide-stop" type="button">' + (st.done ? "Tutup" : "Berhenti") + "</button></div>" +
+    var pipBtn = !st.done && NATIVE && NATIVE.pipOk && NATIVE.pipOk() ? '<button class="guide-pip" type="button" aria-label="Mode jendela kecil (PiP)">' + ICO_PIP + "PiP</button>" : "";
+    g.innerHTML = '<div class="guide-top"><span class="guide-live">' + (st.done ? "SELESAI" : "PENDAMPINGAN") + "</span>" + pipBtn + '<button class="guide-stop" type="button">' + (st.done ? "Tutup" : "Berhenti") + "</button></div>" +
       '<div class="guide-main">' + esc(st.alert || st.title) + "</div>" + '<div class="guide-sub">' + esc(st.alert ? st.title + " · " + st.text : st.text) + "</div>" +
       (counts && !st.done ? '<div class="guide-count">' + counts + "</div>" : "");
     if (st.alert) {
@@ -379,11 +459,9 @@
       try { navigator.vibrate && navigator.vibrate([300, 150, 300]); } catch (e) { }
       clearTimeout(alertTimer); alertTimer = setTimeout(function () { g.classList.remove("alert"); }, 8000);
     }
-    // posisi di peta perjalanan + tanda "Kamu di sini" pada langkah
-    if (st.lat && tripMap && S.guide && S.openTrip === S.guide.it) {
-      if (!meMarker) meMarker = L.marker([st.lat, st.lon], { icon: L.divIcon({ className: "", html: '<div class="lm-me"></div>', iconSize: [18, 18], iconAnchor: [9, 9] }), zIndexOffset: 1000 }).addTo(tripMap);
-      else meMarker.setLatLng([st.lat, st.lon]);
-    }
+    // posisi + sisa rute di peta perjalanan
+    if (st.lat || st.cursor != null) { var keep = S.guideSt; S.guideSt = st.lat || !keep ? st : Object.assign({}, st, { lat: keep.lat, lon: keep.lon }); }
+    paintGuideMap(S.guideSt);
     if (S.guide && S.guide.names && st.cursor >= 0) {
       var nm = S.guide.names[st.cursor];
       $$(".st-body.is-now").forEach(function (b) { b.classList.remove("is-now"); });
@@ -391,6 +469,9 @@
       if (hit.length) hit[hit.length - 1].classList.add("is-now");
     }
   }
+  var ICO_PIP = '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="12" y="11" width="7" height="6" rx="1.2" fill="currentColor"/></svg>';
+  /* Mode PiP (jendela kecil) saat pendampingan: hanya kartu pendampingan yang tampil. */
+  window.__lumiPip = function (on) { document.documentElement.classList.toggle("pip", !!on); };
   window.__lumiGuide = function (st) {
     if (!st) return;
     if (st.stopped) { stopGuide(); return; }
@@ -945,6 +1026,8 @@
       L.marker(S.from.p, { icon: dotIcon("lm-end") }).addTo(tripLayer);
       L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(tripLayer);
       tripMap.fitBounds(tripLayer.getBounds(), { padding: [30, 30] });
+      if (guideLayer) { guideLayer.remove(); guideLayer = null; }
+      if (S.guide && S.guide.it === it) { guideFitted = false; paintGuideMap(S.guideSt); }
     }, 60);
 
     var dep = S.dep || new Date(), t = 0;
@@ -1008,9 +1091,7 @@
       if (S.guide && S.guide.it === it) { toast("Pendampingan sudah berjalan — lihat kartu biru di bawah"); return; }
       if (S.guide) stopGuide();
       startGuide(it);
-      $("#btnGuide").innerHTML = ICO_NAV + "Pendampingan sedang berjalan";
     });
-    if (S.guide && S.guide.it === it && meMarker) { meMarker.remove(); meMarker = null; }
     bindTjApp(body);
   }
   /* ------------------------------------------------------- bagikan rute sebagai gambar */
@@ -1613,6 +1694,7 @@
 
   /* ------------------------------------------------------- tombol kembali */
   window.lumiBack = function () {
+    if ($("#gpsAsk")) { var w0 = gpsWait; gpsWait = null; closeGpsAsk(); if (w0) w0.reject(new Error("GPS belum aktif")); return true; }
     if (!$("#sheetTime").hidden) { $("#sheetTime").hidden = true; return true; }
     if (!$("#sheetShare").hidden) { $("#sheetShare").hidden = true; return true; }
     if (!$("#sheetPick").hidden) { $("#sheetPick").hidden = true; return true; }

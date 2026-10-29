@@ -145,7 +145,39 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (pageReady) js("window.__lumiPerm && __lumiPerm()");   // kembali dari pengaturan HP
+        if (pageReady) js("window.__lumiPerm && __lumiPerm(); window.__lumiResume && __lumiResume()");   // kembali dari pengaturan HP
+        updatePip(NavService.tracker != null);
+    }
+
+    /* ---- mode PiP (jendela kecil) selama pendampingan ---- */
+    private boolean pipSupported() {
+        return Build.VERSION.SDK_INT >= 26 && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+    }
+    private android.app.PictureInPictureParams pipParams(boolean auto) {
+        android.app.PictureInPictureParams.Builder b = new android.app.PictureInPictureParams.Builder()
+                .setAspectRatio(new android.util.Rational(4, 5));
+        if (Build.VERSION.SDK_INT >= 31) b.setAutoEnterEnabled(auto).setSeamlessResizeEnabled(true);
+        return b.build();
+    }
+    /** Android 12+: masuk PiP otomatis saat aplikasi ditinggalkan selama pendampingan. */
+    void updatePip(boolean guiding) {
+        if (!pipSupported()) return;
+        try { setPictureInPictureParams(pipParams(guiding)); } catch (Exception ignored) { }
+    }
+    void enterPip() {
+        if (!pipSupported()) return;
+        try { enterPictureInPictureMode(pipParams(NavService.tracker != null)); } catch (Exception ignored) { }
+    }
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Android 8–11: tombol Home saat pendampingan → jendela kecil.
+        if (Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT < 31 && NavService.tracker != null) enterPip();
+    }
+    @Override
+    public void onPictureInPictureModeChanged(boolean inPip, android.content.res.Configuration cfg) {
+        super.onPictureInPictureModeChanged(inPip, cfg);
+        js("window.__lumiPip && __lumiPip(" + inPip + ")");
     }
 
     private boolean hasLoc() {
@@ -613,12 +645,40 @@ public class MainActivity extends Activity {
                 } else {
                     NavService.start(MainActivity.this, spec, title);
                 }
+                updatePip(true);
             }});
         }
 
         @JavascriptInterface
         public void stopGuide() {
-            main.post(new Runnable() { @Override public void run() { NavService.stop(MainActivity.this); }});
+            main.post(new Runnable() { @Override public void run() { NavService.stop(MainActivity.this); updatePip(false); }});
+        }
+
+        /** Apakah Lokasi/GPS HP aktif. */
+        @JavascriptInterface
+        public boolean gpsOn() {
+            LocationManager lm = (LocationManager) getSystemService(LOCATION_SERVICE);
+            if (lm == null) return false;
+            if (Build.VERSION.SDK_INT >= 28) return lm.isLocationEnabled();
+            try { return lm.isProviderEnabled(LocationManager.GPS_PROVIDER) || lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER); }
+            catch (Exception e) { return true; }
+        }
+
+        /** Buka pengaturan Lokasi HP. */
+        @JavascriptInterface
+        public void openGpsSettings() {
+            main.post(new Runnable() { @Override public void run() {
+                try { startActivity(new Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)); }
+                catch (ActivityNotFoundException e) { try { startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS)); } catch (Exception ignored) { } }
+            }});
+        }
+
+        @JavascriptInterface
+        public boolean pipOk() { return pipSupported(); }
+
+        @JavascriptInterface
+        public void enterPip() {
+            main.post(new Runnable() { @Override public void run() { MainActivity.this.enterPip(); }});
         }
 
         /** Status pendampingan terakhir (JSON) bila sedang berjalan, atau null. */

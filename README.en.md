@@ -82,6 +82,11 @@
 **🚌 Bus positions**
 - Transjakarta's fleet server only serves its official app, so Lumi doesn't show bus positions itself. Each bus leg has a **See bus position in the TJ app** button that opens the TJ app, or the Play Store if it isn't installed
 
+**🧭 GPS guidance**
+- The map shows only what's left of the trip: passed lines and stops disappear; the first walk starts from where you are now
+- **Picture-in-picture**: the guidance card stays visible in a small window while you use other apps
+- A prompt to turn on GPS when phone location is off
+
 **🎯 Result filters**
 - Sort: **Recommended · Fastest · Cheapest · Fewest transfers**
 - Modes: **Transjakarta · Mikrotrans · LRT · MRT · KRL · Royaltrans · Airport Rail · Whoosh · Ride-hailing**. Shown trips **include every selected mode** and may combine others

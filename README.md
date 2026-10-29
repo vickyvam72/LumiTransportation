@@ -82,6 +82,11 @@
 **🚌 Posisi bus**
 - Server armada Transjakarta hanya melayani aplikasi resminya, jadi Lumi tidak menampilkan posisi bus sendiri. Di setiap ruas bus ada tombol **Lihat posisi bus di aplikasi TJ** yang membuka aplikasi TJ, atau Play Store bila belum terpasang
 
+**🧭 Pendampingan GPS**
+- Peta hanya menampilkan sisa perjalanan: garis dan halte yang sudah dilewati menghilang; langkah pertama dimulai dari posisimu sekarang
+- **Mode PiP**: kartu pendampingan tetap terlihat dalam jendela kecil saat kamu membuka aplikasi lain
+- Pop-up untuk menyalakan GPS bila Lokasi HP masih mati
+
 **🎯 Filter hasil**
 - Urutan: **Rekomendasi · Tercepat · Termurah · Minim transit**
 - Moda: **Transjakarta · Mikrotrans · LRT · MRT · KRL · Royaltrans · KA Bandara · Whoosh · Ojol**. Yang tampil adalah opsi yang **mengandung semua moda terpilih**, boleh dikombinasi moda lain
