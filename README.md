@@ -30,7 +30,7 @@
 |---|---|
 | 🗺️ **Semua kombinasi rute** | 9 dan 9A muncul sebagai opsi sendiri, begitu juga JAK36 → LRT, 9C → Makasar → JAK108, dan lainnya. Bukan cuma satu jawaban. |
 | 🎯 **Filter yang kamu mau** | Urutkan Tercepat, Termurah, atau Minim transit, lalu pilih moda: hanya yang **mengandung TJ**, atau TJ + LRT, dan seterusnya. |
-| 📡 **Posisi bus langsung** | Lihat bus Transjakarta, Mikrotrans, dan Royaltrans **bergerak di peta**, ke mana tujuannya, dan **kapan tiba di haltemu**, seperti di aplikasi TJ. |
+| 🚌 **Posisi bus di aplikasi TJ** | Di setiap ruas Transjakarta, Mikrotrans, dan Royaltrans ada tombol **Lihat posisi bus di aplikasi TJ**: langsung membuka aplikasi resmi TJ, atau Play Store bila belum terpasang. |
 | 🧭 **Pendampingan GPS** | Tahu posisimu di peta, **sisa pemberhentian**, dan HP bergetar saat **"Siap-siap turun"** dan **"Turun sekarang"**, juga saat layar mati. |
 | 🔔 **Tahu kalau rute berubah** | Data resmi Transjakarta **dicek tiap jam**. Begitu ada rute baru, rute dihapus, atau halte berubah, kamu dapat **notifikasi**. |
 | 🖼️ **Bagikan sebagai gambar** | Setiap rute bisa dibagikan sebagai **gambar rapi** ke WhatsApp, IG, atau mana saja. |
@@ -55,10 +55,10 @@
 | <img src="docs/screenshots/hasil.jpg" width="240" alt="Hasil rute"> | <img src="docs/screenshots/filter.jpg" width="240" alt="Filter"> | <img src="docs/screenshots/pendampingan.jpg" width="240" alt="Pendampingan"> |
 | **Bandingkan dalam sekali lihat.** Strip warna per jalur, waktu, tarif, jumlah pindah, dan tombol **Bagikan rute** di tiap kartu. | **Hanya yang ada TJ-nya, urut termurah.** Atau TJ + LRT, Mikrotrans, KRL, MRT, Ojol. | **Tidak kebablasan lagi.** "Siap-siap turun!" saat tinggal satu pemberhentian, lengkap dengan getar. |
 
-| 📡 Bus di sekitarmu | 🚏 Bus berikutnya di halte naik | 🧭 Arah & varian yang jelas |
-|:-:|:-:|:-:|
-| <img src="docs/screenshots/bus-langsung.jpg" width="240" alt="Bus di sekitarmu"> | <img src="docs/screenshots/bus-perjalanan.jpg" width="240" alt="Bus di detail perjalanan"> | <img src="docs/screenshots/arah-rute.jpg" width="240" alt="Arah rute"> |
-| **Posisi bus langsung** di sekitarmu, lengkap dengan tujuan, halte berikutnya, dan jaraknya darimu. | **"Bus 9C berikutnya tiba di Pancoran Tugu ±4 mnt"**, langsung di kartu rute, plus posisinya di peta. | **9N: Pinang Ranti – Simpang Cawang**, dua arah yang jelas, dan setiap varian diberi keterangan (via Tol, lewat Senen, …). |
+| 🧭 Arah & varian yang jelas |
+|:-:|
+| <img src="docs/screenshots/arah-rute.jpg" width="240" alt="Arah rute"> |
+| **9N: Pinang Ranti – Simpang Cawang**, dua arah yang jelas, dan setiap varian diberi keterangan (via Tol, lewat Senen, …). |
 
 | 🖼️ Bagikan sebagai gambar | 💸 Tarif terbaru |
 |:-:|:-:|
@@ -79,12 +79,8 @@
 - **Jam berangkat / tiba sebelum**, dengan jam operasional tiap moda (AMARI 24 jam, Mikrotrans 24 jam, KRL, MRT, LRT, KA Bandara, Whoosh)
 - Kombinasi **ojol + kereta** dan ojol motor/mobil langsung, dengan jarak jalan dari OSRM
 
-**📡 Posisi bus langsung**
-- **Bus di sekitarmu** (di Beranda): peta dengan bus Transjakarta, Mikrotrans, dan Royaltrans dari rute yang melintas dalam ±900 m, diperbarui tiap beberapa detik; ketuk bus untuk melihat tujuan, halte berikutnya, dan kepadatan
-- **Detail rute**: semua bus rute itu di peta, yang searah dengan arah pilihanmu tampil paling atas
-- **Detail perjalanan**: *"Bus 9C berikutnya tiba di Pancoran Tugu ±4 mnt"* untuk setiap ruas bus, hanya menghitung bus yang memang menuju halte turunmu
-- Hemat kuota: Lumi hanya berlangganan rute yang sedang kamu lihat, dan berhenti saat layar ditutup
-- Bila data armada tidak bisa dijangkau, Lumi menampilkan penyebabnya dan tombol **Lihat di aplikasi TJ**
+**🚌 Posisi bus**
+- Server armada Transjakarta hanya melayani aplikasi resminya, jadi Lumi tidak menampilkan posisi bus sendiri. Di setiap ruas bus ada tombol **Lihat posisi bus di aplikasi TJ** yang membuka aplikasi TJ, atau Play Store bila belum terpasang
 
 **🎯 Filter hasil**
 - Urutan: **Rekomendasi · Tercepat · Termurah · Minim transit**
@@ -169,7 +165,7 @@ Diperbarui **29 Oktober 2026**. Tarif adalah perkiraan; selalu cek pengumuman op
 ## ⬇️ Unduh & Pasang
 
 1. Buka halaman **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)**.
-2. Di bagian **Assets**, unduh `LumiTransportation-v2.5.apk`.
+2. Di bagian **Assets**, unduh `LumiTransportation-v2.6.apk`.
 3. Buka file yang sudah diunduh. Kalau Android meminta, izinkan **"Instal aplikasi tidak dikenal"** untuk browser atau pengelola file yang kamu pakai.
 4. Tekan **Instal**. Selesai! 🎉
 
@@ -210,8 +206,8 @@ Ketuk **Bagikan rute** di kartu hasil atau di detail perjalanan, lalu pilih What
 ### 6️⃣ Lihat perubahan rute 🔔
 Saat ada perubahan, notifikasi muncul. Ketuk untuk melihat daftarnya, atau buka **Pengaturan → Perubahan rute**. Tombol **Lihat rute** membuka halte terbaru rute itu.
 
-### 7️⃣ Lihat bus secara langsung 📡
-Di Beranda ketuk **Bus di sekitarmu**. Di detail perjalanan, kartu tiap bus menunjukkan kapan bus berikutnya tiba di halte naikmu. Di tab **Rute**, buka rute mana pun untuk melihat semua busnya di peta.
+### 7️⃣ Lihat posisi bus 🚌
+Di detail perjalanan, ketuk **Lihat posisi bus … di aplikasi TJ** pada ruas Transjakarta/Mikrotrans/Royaltrans. Lumi membuka aplikasi resmi TJ, atau Play Store bila belum terpasang.
 
 ### 8️⃣ Info rute
 Tab **Rute**: cari kode atau nama rute, pilih arah/varian, ketuk halte untuk menjadikannya asal atau tujuan.
@@ -257,7 +253,7 @@ Tarif adalah perkiraan berdasarkan aturan yang diumumkan (lihat [Tarif yang dipa
 - ✅ **Tanpa** iklan, analitik, atau pelacak
 - ✅ Lokasi dan tempat tersimpan hanya ada **di HP-mu**
 - ✅ Rute dihitung di HP; tidak ada server Lumi
-- ℹ️ Internet dipakai untuk: peta CARTO, membaca tautan Google Maps, jarak jalan OSRM (estimasi ojol), GTFS resmi Transjakarta, umpan perubahan rute dari GitHub, dan feed posisi armada Transjakarta (hanya saat fitur bus langsung dibuka; Lumi tidak mengirim lokasimu ke sana)
+- ℹ️ Internet dipakai untuk: peta CARTO, membaca tautan Google Maps, jarak jalan OSRM (estimasi ojol), GTFS resmi Transjakarta, dan umpan perubahan rute dari GitHub
 
 ---
 
@@ -270,7 +266,6 @@ Tarif adalah perkiraan berdasarkan aturan yang diumumkan (lihat [Tarif yang dipa
 | Peta | **Leaflet** + CARTO Basemaps (OpenStreetMap) |
 | Mesin rute | Graf multimoda + Dijkstra + enumerasi kombinasi (`engine.js`), berjalan offline |
 | Data rute | GTFS resmi Transjakarta (diproses di HP oleh `GtfsImporter.java`) |
-| Bus langsung | WebSocket native (`LiveSocket.java`) + klien MQTT 3.1.1 mini (`live.js`), tanpa library tambahan |
 | Latar belakang | Foreground service (pendampingan GPS), JobScheduler (cek rute tiap jam & harian) |
 | CI/CD | GitHub Actions: build APK tiap push & pantau perubahan rute tiap jam |
 
@@ -292,7 +287,6 @@ app/src/main/
     ├── index.html, css/app.css
     ├── js/engine.js          # Mesin rute, tarif, jam operasional
     ├── js/app.js             # Antarmuka
-    ├── js/live.js            # Klien MQTT mini untuk posisi bus langsung
     └── js/data.js            # Data rute bawaan (dibuat tools/build_data.py)
 data/                         # Umpan perubahan rute (diisi GitHub Actions)
 data-raw/                     # Data mentah: GTFS, koordinat stasiun, daftar rute resmi
@@ -340,8 +334,6 @@ Lumi Transportation bisa berdiri berkat data terbuka, proyek open-source, dan la
 | [**akherlan/transjakartagtfs**](https://github.com/akherlan/transjakartagtfs) | GTFS Transjakarta 2021 untuk rute non-BRT, Mikrotrans, Royaltrans bawaan |
 | [**Rebornian48/map-visualizer**](https://github.com/Rebornian48/map-visualizer) | Koordinat stasiun kereta (data sarana prasarana Kemenhub) |
 | [**MobilityData**](https://mobilitydatabase.org/feeds/gtfs/mdb-1909) | Katalog feed GTFS Transjakarta |
-| [**BroNils/open-tj**](https://github.com/BroNils/open-tj) | Dokumentasi feed armada Transjakarta (broker MQTT, struktur topik, dan isi pesan) |
-| [**stoikal/tj-tracker**](https://github.com/stoikal/tj-tracker) | Contoh pelacak bus TJ langsung dengan feed armada yang sama |
 | KAI Commuter, MRT Jakarta, LRT Jakarta, LRT Jabodebek, KAI Bandara, KCIC | Urutan stasiun, jam operasional, dan tarif dari situs serta pengumuman resmi |
 | Wikipedia & media (Kompas, detik, CNA, Bisnis, CNN Indonesia, Suara, IDN Times, dll.) | Perubahan rute (mis. koridor 9 via tol), tarif terbaru, dan jam operasional |
 
@@ -359,7 +351,7 @@ Lumi Transportation bisa berdiri berkat data terbuka, proyek open-source, dan la
 
 Lumi Transportation adalah proyek independen untuk **penggunaan pribadi dan edukasi**.
 Lumi **tidak berafiliasi dengan, didukung oleh, atau disponsori oleh** PT Transportasi Jakarta, PT KAI / KAI Commuter, PT MRT Jakarta, PT LRT Jakarta, KCIC, Gojek, Grab, maupun Google. Semua merek dagang adalah milik pemiliknya masing-masing.
-Waktu tempuh dan tarif adalah **perkiraan**. Posisi bus langsung berasal dari feed armada publik Transjakarta yang tidak terdokumentasi resmi, sehingga bisa terlambat, tidak lengkap, atau berhenti sewaktu-waktu. Selalu cek pengumuman operator untuk gangguan atau perubahan layanan.
+Waktu tempuh dan tarif adalah **perkiraan**. Selalu cek pengumuman operator untuk gangguan atau perubahan layanan.
 
 ## 📄 Lisensi
 

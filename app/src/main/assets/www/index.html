@@ -67,11 +67,7 @@
       <main class="plan-body" id="planBody">
         <div id="planIntro">
           <div id="gtfsBanner"></div>
-          <button class="live-entry" id="btnLiveNear" type="button">
-            <span class="live-entry-ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 11h16M8 20l1.5-3M16 20l-1.5-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="14" r="1.2" fill="currentColor"/><circle cx="15.5" cy="14" r="1.2" fill="currentColor"/></svg></span>
-            <span class="live-entry-txt"><b>Bus di sekitarmu <i class="live-pill">LANGSUNG</i></b><span>Lihat posisi bus Transjakarta &amp; Mikrotrans saat ini di peta.</span></span>
-            <svg class="live-entry-go" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
+
           <h2 class="sect-title">Tujuan populer <span style="font-weight:500;color:var(--muted);font-size:12.5px">· dibuka di Google Maps</span></h2>
           <div class="pop" id="popular"></div>
           <div id="recentWrap" hidden>
@@ -137,12 +133,7 @@
       <div class="sheet-body" id="tripBody"></div>
     </div>
 
-    <div class="sheet" id="sheetLive" hidden>
-      <div class="sheet-bar"><button class="back" data-close aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <div class="sheet-title">Bus di sekitarmu</div><span class="live-status" id="liveNearStatus"></span></div>
-      <div class="map" id="liveMap"></div>
-      <div class="sheet-body" id="liveBody"></div>
-    </div>
+
     <div class="sheet" id="sheetLine" hidden>
       <div class="line-hero" id="lineHero"></div>
       <div class="map map-short" id="lineMap"></div>
@@ -212,7 +203,6 @@
   <script src="vendor/leaflet.js"></script>
   <script src="js/data.js"></script>
   <script src="js/engine.js"></script>
-  <script src="js/live.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

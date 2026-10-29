@@ -10,6 +10,26 @@
 
 ---
 
+## ✦ v2.6 — 29 Oktober 2026 / 29 October 2026
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+- Tombol **Bersihkan** di hasil pencarian untuk kembali ke beranda
+- Fitur posisi bus di dalam Lumi dihapus; tiap ruas bus punya tombol **Lihat posisi bus di aplikasi TJ** (aplikasi TJ atau Play Store)
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+- **Clear** button on results to return home
+- In-app live bus positions removed; each bus leg links to the official TJ app (or the Play Store)
+
+</details>
+
+---
+
 ## ✦ v2.5 — 29 Oktober 2026 / 29 October 2026
 
 <details open>

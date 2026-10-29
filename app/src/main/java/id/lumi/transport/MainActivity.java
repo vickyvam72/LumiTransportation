@@ -51,26 +51,6 @@ public class MainActivity extends Activity {
     private String pendingLocateId;
     private String pendingShare;
     private boolean pageReady;
-    private final Object liveLock = new Object();
-    private LiveSocket live;
-    private volatile java.util.Set<String> liveFilterSet;
-    private final java.util.ArrayList<String> liveQueue = new java.util.ArrayList<String>();
-    private boolean liveFlushPending;
-
-    /** Kirim data bus ke JS paling sering tiap 250 ms (digabung) agar WebView tidak kewalahan. */
-    private void scheduleLiveFlush() {
-        synchronized (liveLock) { if (liveFlushPending) return; liveFlushPending = true; }
-        main.postDelayed(new Runnable() { @Override public void run() {
-            StringBuilder sb = new StringBuilder("[");
-            synchronized (liveLock) {
-                for (int i = 0; i < liveQueue.size(); i++) { if (i > 0) sb.append(','); sb.append('"').append(liveQueue.get(i)).append('"'); }
-                liveQueue.clear();
-                liveFlushPending = false;
-            }
-            sb.append(']');
-            if (web != null) web.evaluateJavascript("window.LumiLive && LumiLive.__nativeData(" + sb + ")", null);
-        }}, 250);
-    }
     private String[] pendingGuide;
 
     @Override
@@ -199,7 +179,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         NavService.listener = null;
-        synchronized (liveLock) { if (live != null) live.close(); live = null; }
         pool.shutdownNow();
         if (web != null) web.destroy();
         super.onDestroy();
@@ -736,57 +715,6 @@ public class MainActivity extends Activity {
             }});
         }
 
-        /* ---- posisi bus langsung: WebSocket native (byte MQTT diteruskan ke live.js) ---- */
-        @JavascriptInterface
-        public void liveOpen(final String url) {
-            synchronized (liveLock) {
-                if (live != null) live.close();
-                liveQueue.clear();
-                live = new LiveSocket(url, new LiveSocket.Listener() {
-                    public void onOpen() { js("window.LumiLive && LumiLive.__nativeOpen()"); }
-                    public void onData(byte[] d) {
-                        synchronized (liveLock) { liveQueue.add(android.util.Base64.encodeToString(d, android.util.Base64.NO_WRAP)); }
-                        scheduleLiveFlush();
-                    }
-                    public void onClose(String reason) {
-                        // Kirim dulu data yang masih antre (mis. balasan CONNACK) agar penyebab sebenarnya tidak hilang.
-                        StringBuilder sb = new StringBuilder("[");
-                        synchronized (liveLock) {
-                            for (int i = 0; i < liveQueue.size(); i++) { if (i > 0) sb.append(','); sb.append('"').append(liveQueue.get(i)).append('"'); }
-                            liveQueue.clear();
-                        }
-                        sb.append(']');
-                        js("window.LumiLive && (LumiLive.__nativeData(" + sb + "), LumiLive.__nativeClose(" + JSONObject.quote(reason) + "))");
-                    }
-                });
-                live.filter = liveFilterSet;
-                live.start();
-            }
-        }
-
-        /** Daftar kode rute yang ingin diterima (JSON array); kosong = semua. */
-        @JavascriptInterface
-        public void liveFilter(String json) {
-            try {
-                org.json.JSONArray a = new org.json.JSONArray(json);
-                java.util.Set<String> f = new java.util.HashSet<String>();
-                for (int i = 0; i < a.length(); i++) f.add(LiveSocket.norm(a.getString(i)));
-                LiveSocket l = live;
-                if (l != null) l.filter = f.isEmpty() ? null : f;
-                liveFilterSet = f.isEmpty() ? null : f;
-            } catch (Exception ignored) { }
-        }
-
-        /** Jumlah byte yang diterima koneksi saat ini (untuk info pemakaian kuota). */
-        @JavascriptInterface
-        public double liveBytes() { LiveSocket l = live; return l == null ? 0 : l.bytesIn; }
-
-        @JavascriptInterface
-        public void liveSend(String b64) {
-            LiveSocket l = live;
-            if (l != null) l.send(android.util.Base64.decode(b64, android.util.Base64.NO_WRAP));
-        }
-
         /** Buka aplikasi resmi TJ (pelacak bus resmi); bila belum terpasang, buka Play Store. */
         @JavascriptInterface
         public void openTjApp() {
@@ -801,13 +729,8 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public void liveClose() {
-            synchronized (liveLock) { if (live != null) live.close(); live = null; liveQueue.clear(); }
-        }
-
-        @JavascriptInterface
         public String version() {
-            return "2.5";
+            return "2.6";
         }
     }
 }
