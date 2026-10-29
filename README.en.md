@@ -30,6 +30,7 @@
 |---|---|
 | 🗺️ **Every route combination** | Routes 9 and 9A appear as separate options, and so do JAK36 → LRT, 9C → Makasar → JAK108 and more. Not just one answer. |
 | 🎯 **Filters you control** | Sort by Fastest, Cheapest or Fewest transfers, then pick modes: only trips that **include TJ**, or TJ + LRT, and so on. |
+| 📡 **Live bus positions** | Watch Transjakarta, Mikrotrans and Royaltrans buses **moving on the map**, where they're heading and **when they reach your stop**, like the official TJ app. |
 | 🧭 **GPS guidance** | See where you are, **how many stops are left**, and feel a vibration for **"Get ready"** and **"Get off now"**, even with the screen off. |
 | 🔔 **Know when routes change** | Official Transjakarta data is **checked every hour**. New routes, removed routes or changed stops trigger a **notification**. |
 | 🖼️ **Share as an image** | Every route can be shared as a **clean image** to WhatsApp, Instagram or anywhere. |
@@ -54,6 +55,11 @@
 | <img src="docs/screenshots/hasil.jpg" width="240" alt="Results"> | <img src="docs/screenshots/filter.jpg" width="240" alt="Filters"> | <img src="docs/screenshots/pendampingan.jpg" width="240" alt="Guidance"> |
 | **Compare at a glance**: colour strip per line, time, fare, transfers and a **Share route** button on every card. | **Only trips with TJ, cheapest first.** Or TJ + LRT, Mikrotrans, KRL, MRT, ride-hailing. | **Never miss your stop**: "Get ready!" one stop before, with vibration. |
 
+| 📡 Buses near you | 🚏 Next bus at your stop | 🧭 Clear directions & variants |
+|:-:|:-:|:-:|
+| <img src="docs/screenshots/bus-langsung.jpg" width="240" alt="Buses near you"> | <img src="docs/screenshots/bus-perjalanan.jpg" width="240" alt="Next bus"> | <img src="docs/screenshots/arah-rute.jpg" width="240" alt="Directions"> |
+| **Live bus positions** around you with destination, next stop and distance. | **"Next 9C arrives at Pancoran Tugu in ~4 min"** right on the trip card, plus its position on the map. | **9N: Pinang Ranti – Simpang Cawang**, two clear directions, and every variant described (via toll, via Senen, …). |
+
 | 🖼️ Share as image | 💸 Up-to-date fares |
 |:-:|:-:|
 | <img src="docs/screenshots/gambar-rute.jpg" width="240" alt="Route image"> | <img src="docs/screenshots/tarif.jpg" width="240" alt="Fares"> |
@@ -72,6 +78,12 @@
 - Duplicate options and pointless "ride one stop, then walk" options are removed
 - **Depart at / arrive by**, using each mode's operating hours
 - **Ride-hailing + train** combinations and direct motorbike/car ride-hailing, with road distance from OSRM
+
+**📡 Live bus positions**
+- **Buses near you** (on Home): a map of Transjakarta, Mikrotrans and Royaltrans buses on routes passing within ~900 m, refreshed every few seconds; tap a bus for its destination, next stop and crowding
+- **Route details**: every bus on that route; buses heading your chosen way are listed first
+- **Trip details**: *"Next 9C arrives at Pancoran Tugu in ~4 min"* for each bus leg, counting only buses actually heading to your stop
+- Data-friendly: Lumi only subscribes to the routes you're viewing and stops when you close the screen
 
 **🎯 Result filters**
 - Sort: **Recommended · Fastest · Cheapest · Fewest transfers**
@@ -138,7 +150,7 @@ Sources are listed in the [Indonesian README](README.md#-tarif-yang-dipakai).
 ## ⬇️ Download & Install
 
 1. Open the **[Releases](https://github.com/vickyvam72/LumiTransportation/releases/latest)** page.
-2. Under **Assets**, download `LumiTransportation-v2.0.apk`.
+2. Under **Assets**, download `LumiTransportation-v2.1.apk`.
 3. Open the downloaded file. If Android asks, allow **"Install unknown apps"** for your browser or file manager.
 4. Tap **Install**. Done! 🎉
 
@@ -227,6 +239,7 @@ Fares are estimates based on published rules (see [Fares used](#-fares-used)). P
 | Maps | **Leaflet** + CARTO Basemaps (OpenStreetMap) |
 | Routing | Multimodal graph + Dijkstra + combination search (`engine.js`), offline |
 | Route data | Official Transjakarta GTFS (processed on the phone by `GtfsImporter.java`) |
+| Live buses | Tiny MQTT 3.1.1 client over WebSocket (`live.js`), no extra libraries |
 | Background | Foreground service (GPS guidance), JobScheduler (hourly and daily route checks) |
 | CI/CD | GitHub Actions: build the APK on every push and watch for route changes every hour |
 
@@ -261,6 +274,8 @@ Lumi Transportation exists thanks to the open data, open-source projects and ser
 | [**akherlan/transjakartagtfs**](https://github.com/akherlan/transjakartagtfs) | 2021 Transjakarta GTFS for built-in non-BRT, Mikrotrans and Royaltrans routes |
 | [**Rebornian48/map-visualizer**](https://github.com/Rebornian48/map-visualizer) | Railway station coordinates (Ministry of Transportation data) |
 | [**MobilityData**](https://mobilitydatabase.org/feeds/gtfs/mdb-1909) | Transjakarta GTFS feed catalogue |
+| [**BroNils/open-tj**](https://github.com/BroNils/open-tj) | Documentation of the Transjakarta fleet feed (MQTT broker, topic structure, message format) |
+| [**stoikal/tj-tracker**](https://github.com/stoikal/tj-tracker) | A live TJ bus tracker using the same fleet feed |
 | KAI Commuter, MRT Jakarta, LRT Jakarta, LRT Jabodebek, KAI Bandara, KCIC | Station order, operating hours and fares from official sites and announcements |
 | Wikipedia & news media (Kompas, detik, CNA, Bisnis, CNN Indonesia, Suara, IDN Times, etc.) | Route changes (e.g. corridor 9 via toll), latest fares and operating hours |
 
@@ -278,7 +293,7 @@ Lumi Transportation exists thanks to the open data, open-source projects and ser
 
 Lumi Transportation is an independent project for **personal and educational use**.
 It is **not affiliated with, endorsed by or sponsored by** PT Transportasi Jakarta, PT KAI / KAI Commuter, PT MRT Jakarta, PT LRT Jakarta, KCIC, Gojek, Grab or Google. All trademarks belong to their respective owners.
-Travel times and fares are **estimates** and don't use real-time schedules. Always check operator announcements for disruptions or service changes.
+Travel times and fares are **estimates**. Live bus positions come from Transjakarta's public but undocumented fleet feed and may lag, be incomplete, or stop working at any time. Always check operator announcements for disruptions or service changes.
 
 ## 📄 License
 

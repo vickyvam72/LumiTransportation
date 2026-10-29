@@ -535,3 +535,57 @@ details.adv summary { font-weight: 700; font-size: 13.5px; color: var(--ink-soft
 .ob-oem { padding: clamp(8px, 1.4vh, 14px) 12px; }
 .ob-oem-h b { font-size: clamp(13.5px, 1.9vh, 15.5px); }
 .ob-head { margin-top: clamp(0px, 1vh, 10px); }
+
+/* v2.1: nama rute + label 24 jam rata kanan, tidak terpotong */
+.l-name { display: flex; align-items: center; gap: 8px; font-size: 14.5px; }
+.l-name .l-nm { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-name .l-24 { flex: none; margin-left: auto; white-space: nowrap; }
+.l-sub { font-size: 12px; }
+.dir-toggle button.is-var { font-weight: 600; }
+.dir-toggle .dv { white-space: normal; }
+
+/* ---------------------------------------------------------------- v2.1 bus langsung */
+.live-entry { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: #fff; border: 1.5px solid var(--sky);
+  border-radius: var(--r-lg); padding: 13px 14px; margin-bottom: 18px; box-shadow: 0 6px 18px rgba(21, 101, 216, .08); }
+.live-entry-ico { width: 44px; height: 44px; border-radius: 14px; background: var(--grad); color: #fff; display: grid; place-items: center; flex: none; }
+.live-entry-ico svg { width: 24px; height: 24px; }
+.live-entry-txt { flex: 1; min-width: 0; }
+.live-entry-txt b { display: block; font-size: 15px; }
+.live-entry-txt span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.live-entry-go { width: 20px; height: 20px; color: var(--faint); flex: none; }
+.live-pill { font-style: normal; font-size: 10px; font-weight: 800; letter-spacing: .05em; color: #fff; background: #E53935; border-radius: 6px; padding: 2px 6px; margin-left: 6px; vertical-align: 2px; }
+.live-status { font-size: 12px; font-weight: 700; color: var(--muted); }
+.sheet-bar .live-status { color: rgba(255,255,255,.92); margin-right: 8px; }
+.live-card { background: #fff; border: 1px solid var(--line); border-radius: var(--r-md); padding: 12px 14px; margin: 0 0 12px; }
+.live-card > b { display: block; font-size: 15px; }
+.live-card p { margin: 4px 0 0; font-size: 13px; color: var(--muted); }
+.live-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.live-h b::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #E53935; margin-right: 7px; vertical-align: 2px; animation: pulse 1.4s ease-in-out infinite; }
+.live-routes { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 12px; }
+.bus-list { list-style: none; margin: 8px 0 0; padding: 0; }
+.bus-list li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); cursor: pointer; }
+.bus-list li:first-child { border-top: 0; }
+.bus-list li > div { flex: 1; min-width: 0; }
+.bus-list li b { display: block; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bus-list li span:not(.badge) { display: block; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bus-list li em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--faint); flex: none; }
+.bus-list li.muted { font-size: 13px; color: var(--muted); cursor: default; }
+.bus-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px rgba(21, 101, 216, .12); flex: none; }
+.lm-bus { display: inline-flex; align-items: center; gap: 3px; height: 26px; padding: 0 8px 0 4px; border-radius: 13px; background: var(--c);
+  border: 2.5px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35); color: #fff; box-sizing: border-box; white-space: nowrap; }
+.lm-bus s { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,.95); color: var(--c); text-decoration: none; flex: none; }
+.lm-bus s svg { width: 9px; height: 9px; }
+.lm-bus b { font: 800 11.5px/1 "PJS", system-ui, sans-serif; letter-spacing: -.01em; }
+.lm-bus.stale { opacity: .45; }
+.bus-pop { font: 500 13px/1.45 "PJS", system-ui, sans-serif; }
+.live-eta { display: flex; align-items: center; gap: 7px; margin-top: 8px; padding: 7px 10px; border-radius: 10px; background: var(--paper); font-size: 12.5px; color: var(--muted); }
+.live-eta.on { background: #E8F7EE; color: #11643A; }
+.live-eta b { color: #0B7A3B; }
+.live-eta span { color: var(--faint); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.live-eta.on .live-dot { background: #22C55E; animation: pulse 1.4s ease-in-out infinite; }
+#sheetLive .map { height: 46vh; }
+
+.l-name { align-items: flex-start; font-size: 14.5px; line-height: 1.28; white-space: normal; overflow: visible; }
+.l-name .l-nm { white-space: normal; overflow: visible; text-overflow: clip; }
+.l-name .l-24 { margin-top: 1px; }

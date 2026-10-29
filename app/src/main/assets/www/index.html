@@ -15,7 +15,7 @@
       <header class="plan-head">
         <div class="brand">
           <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
-            <defs><linearGradient id="bmg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8BE0FF"/><stop offset="1" stop-color="#1565D8"/></linearGradient></defs>
+            <defs><linearGradient id="bmg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7FCBF7"/><stop offset="1" stop-color="#3A7BE4"/></linearGradient></defs>
             <circle cx="20" cy="20" r="19" fill="url(#bmg)" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
             <path d="M14 11v11a6 6 0 0 0 6 6h7" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/>
             <circle cx="14" cy="11" r="3.4" fill="#1565D8" stroke="#fff" stroke-width="2.4"/>
@@ -67,6 +67,11 @@
       <main class="plan-body" id="planBody">
         <div id="planIntro">
           <div id="gtfsBanner"></div>
+          <button class="live-entry" id="btnLiveNear" type="button">
+            <span class="live-entry-ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 11h16M8 20l1.5-3M16 20l-1.5-3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="8.5" cy="14" r="1.2" fill="currentColor"/><circle cx="15.5" cy="14" r="1.2" fill="currentColor"/></svg></span>
+            <span class="live-entry-txt"><b>Bus di sekitarmu <i class="live-pill">LANGSUNG</i></b><span>Lihat posisi bus Transjakarta &amp; Mikrotrans saat ini di peta.</span></span>
+            <svg class="live-entry-go" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           <h2 class="sect-title">Tujuan populer <span style="font-weight:500;color:var(--muted);font-size:12.5px">· dibuka di Google Maps</span></h2>
           <div class="pop" id="popular"></div>
           <div id="recentWrap" hidden>
@@ -132,6 +137,12 @@
       <div class="sheet-body" id="tripBody"></div>
     </div>
 
+    <div class="sheet" id="sheetLive" hidden>
+      <div class="sheet-bar"><button class="back" data-close aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="sheet-title">Bus di sekitarmu</div><span class="live-status" id="liveNearStatus"></span></div>
+      <div class="map" id="liveMap"></div>
+      <div class="sheet-body" id="liveBody"></div>
+    </div>
     <div class="sheet" id="sheetLine" hidden>
       <div class="line-hero" id="lineHero"></div>
       <div class="map map-short" id="lineMap"></div>
@@ -201,6 +212,7 @@
   <script src="vendor/leaflet.js"></script>
   <script src="js/data.js"></script>
   <script src="js/engine.js"></script>
+  <script src="js/live.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

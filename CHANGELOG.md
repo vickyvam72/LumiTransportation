@@ -10,6 +10,44 @@
 
 ---
 
+## ✦ v2.1 — 29 Oktober 2026 / 29 October 2026
+
+<details open>
+<summary><h2>🇮🇩 Bahasa Indonesia</h2></summary>
+
+### ✨ Baru
+
+- **Posisi bus langsung** (Transjakarta, Mikrotrans, Royaltrans) dari feed armada Transjakarta: layar **Bus di sekitarmu**, perkiraan **bus berikutnya** di halte naik pada detail perjalanan, dan semua bus rute di detail rute
+- **Keterangan varian** yang jelas: via Tol, lewat X, tanpa X, mulai X, putar balik di X
+
+### ⚡ Peningkatan
+
+- Nama trayek resmi (mis. 9N Pinang Ranti – Simpang Cawang); rute memutar dipecah menjadi dua arah
+- Daftar rute: label 24 jam rata kanan, nama rute tidak terpotong
+- Gambar rute: ikon orang berjalan untuk langkah jalan kaki
+- Logo dengan gradasi biru yang lebih halus
+
+</details>
+
+<details>
+<summary><h2>🇬🇧 English</h2></summary>
+
+### ✨ New
+
+- **Live bus positions** (Transjakarta, Mikrotrans, Royaltrans): **Buses near you**, next-bus ETA on trip details, and all buses on route details
+- Clear **variant descriptions**: via toll, via X, skips X, starts at X, turns back at X
+
+### ⚡ Improvements
+
+- Official route names (e.g. 9N Pinang Ranti – Simpang Cawang); loop routes split into two directions
+- Route list: 24-hour label right-aligned, names no longer truncated
+- Route image: walking icon for walking steps
+- Smoother blue logo gradient
+
+</details>
+
+---
+
 ## ✦ v2.0 — 29 Oktober 2026 / 29 October 2026
 
 <details open>
