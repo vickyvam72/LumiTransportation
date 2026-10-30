@@ -34,7 +34,7 @@ echo "2/6 kompilasi resource"
 "$AAPT2" link -o "$OUT/base.apk" -I "$ANDROID_JAR" \
   --manifest "$APP/AndroidManifest.xml" -A "$APP/assets" \
   --java "$OUT/gen" --min-sdk-version 24 --target-sdk-version 34 \
-  --version-code 36 --version-name 2.3 -0 woff2 "$OUT/res/res.zip"
+  --version-code 37 --version-name 2.3 -0 woff2 "$OUT/res/res.zip"
 
 echo "3/6 kompilasi Java (ecj)"
 ECJ_JAR=${ECJ_JAR:-$SDK/ecj.jar}

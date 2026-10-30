@@ -585,7 +585,9 @@
     FOOT_SRC.forEach(function (base) {
       http(base + q, 9000).then(function (j) {
         var r = j && j.routes && j.routes[0], w = j && j.waypoints;
-        if (!r || !r.geometry || r.distance > Math.max(straight * 2.6, straight + 600)) return;
+        // Rute memutar yang panjang tetap dipakai (mis. harus lewat simpang susun karena tidak ada jembatan
+        // penyeberangan di atas tol): itu jauh lebih benar daripada garis lurus menembus tol/bangunan.
+        if (!r || !r.geometry || r.distance > Math.max(straight * 8, straight + 3000)) return;
         var g0 = w && w[0] ? w[0].distance : 0, g1 = w && w[1] ? w[1].distance : 0;
         var score = r.distance + g0 + 4 * g1;
         if (!best || score < best.score) best = { score: score, pts: r.geometry.coordinates.map(function (c) { return [c[1], c[0]]; }) };
@@ -593,12 +595,24 @@
     });
   }
   /* Ruas jalan kaki tetap (pindah antarhalte, halte → tujuan): diambil sekali lalu disimpan. */
-  function footPath(a, b) {
+  function footPath(a, b, cb) {
     var k = a[0].toFixed(5) + "," + a[1].toFixed(5) + ";" + b[0].toFixed(5) + "," + b[1].toFixed(5), c = FOOT[k];
-    if (c) return c.pts;
-    FOOT[k] = { pts: null };
-    footFetch(a, b, function (pts) { if (pts) { FOOT[k].pts = pts; FOOTVER++; paintGuideMap(S.guideSt); } });
+    if (c) { if (cb) { if (c.pts) cb(c.pts); else (c.cbs = c.cbs || []).push(cb); } return c.pts; }
+    FOOT[k] = { pts: null, cbs: cb ? [cb] : [] };
+    footFetch(a, b, function (pts) {
+      if (!pts) return;
+      FOOT[k].pts = pts; FOOTVER++; paintGuideMap(S.guideSt);
+      (FOOT[k].cbs || []).forEach(function (f) { try { f(pts); } catch (e) { } }); FOOT[k].cbs = [];
+    });
     return null;
+  }
+  function pathKm(line) { var d = 0; for (var i = 1; i < line.length; i++) d += E.hav(line[i - 1], line[i]); return d; }
+  /* Sisa jarak jalan kaki menyusuri rute (bukan garis lurus): dari titik rute terdekat ke posisiku sampai tujuan. */
+  function remainingWalkKm(me, pts, b) {
+    if (!me || !pts || pts.length < 2) return null;
+    var bi = 0, bd = 1e9;
+    for (var i = 0; i < pts.length; i++) { var d = E.hav(me, pts[i]); if (d < bd) { bd = d; bi = i; } }
+    return bd + pathKm(pts.slice(bi)) + E.hav(pts[pts.length - 1], b);
   }
   /* Ruas dari posisiku ke halte berikutnya: diperbarui bila sudah bergeser >35 m (paling cepat tiap 12 dtk). */
   function liveFootPath(me, tgt) {
@@ -731,6 +745,12 @@
     });
   };
   function compass(on) { try { NATIVE && NATIVE.compass && NATIVE.compass(!!on); } catch (e) { } }
+  function guideRouteMeters(st) {
+    if (!(st.metersLeft >= 0) || !st.lat || !LIVEW || !LIVEW.pts) return null;
+    var tgt = LIVEW.tk.split(","), b = [+tgt[0], +tgt[1]];
+    var km2 = remainingWalkKm([st.lat, st.lon], LIVEW.pts, b);
+    return km2 == null ? null : Math.round(km2 * 1000);
+  }
   function renderGuide(st) {
     var g = $("#guide");
     if (!g) {
@@ -746,6 +766,11 @@
     $("#app").classList.add("guiding");
     var counts = "";
     if (st.stopsLeft >= 0) counts += '<div><b class="tnum">' + st.stopsLeft + "</b><span>pemberhentian lagi</span></div>";
+    var routeM = guideRouteMeters(st);
+    if (routeM != null) {
+      st = Object.assign({}, st, { metersLeft: routeM });
+      if (st.text) st.text = st.text.replace(/±[\d.,]+ (?:m|km) lagi/, "±" + (routeM < 1000 ? Math.round(routeM / 10) * 10 + " m" : (routeM / 1000).toFixed(1).replace(".", ",") + " km") + " lagi");
+    }
     if (st.metersLeft >= 0) counts += '<div><b class="tnum">' + (st.metersLeft < 1000 ? Math.round(st.metersLeft / 10) * 10 + " m" : (st.metersLeft / 1000).toFixed(1).replace(".", ",") + " km") + "</b><span>jalan kaki lagi</span></div>";
     var pipBtn = !st.done && NATIVE && NATIVE.pipOk && NATIVE.pipOk() ? '<button class="guide-pip" type="button" aria-label="Mode jendela kecil (PiP)">' + ICO_PIP + "PiP</button>" : "";
     $(".guide-body", g).innerHTML = '<div class="guide-top"><span class="guide-live">' + (st.done ? "SELESAI" : "PENDAMPINGAN") + "</span>" + pipBtn + '<button class="guide-stop" type="button">' + (st.done ? "Tutup" : "Berhenti") + "</button></div>" +
@@ -1406,7 +1431,7 @@
         var desc = l.type === "transfer"
           ? (l.km < 0.05 ? sameStopText(it.legs[i - 1], it.legs[i + 1]) : "Jalan kaki " + km(l.km) + " (±" + mins(l.min) + ") ke " + esc(l.to) + nextRideText(it.legs[i + 1]))
           : "Jalan kaki " + km(l.km) + " (±" + mins(l.min) + ")" + (dest ? " ke " + esc(dest) : "");
-        html += step(l.type, null, "", "", '<div class="st-desc">' + desc + "</div>");
+        html += step(l.type, null, "", "", '<div class="st-desc" data-walk="' + i + '">' + desc + "</div>");
         t += l.min;
       } else if (l.type === "ojol") {
         html += step("ojol", "#00AA13", "", "", '<div class="st-card"><div class="row"><span class="badge sm" style="background:#00AA13">' + (l.kind === "car" ? "Mobil" : "Motor") +
@@ -1451,6 +1476,20 @@
       startGuide(it);
     });
     bindTjApp(body);
+    // Jarak jalan kaki sebenarnya (menyusuri jalan) untuk langkah jalan kaki > 150 m.
+    it.legs.forEach(function (l, i) {
+      if ((l.type !== "walk" && l.type !== "transfer") || l.km < 0.15) return;
+      var a = i === 0 ? S.from.p : (it.legs[i - 1].toP || null);
+      var b = i === it.legs.length - 1 ? S.to.p : (it.legs[i + 1] && it.legs[i + 1].fromP) || null;
+      if (!a || !b) return;
+      footPath(a, b, function (pts) {
+        var real = E.hav(a, pts[0]) + pathKm(pts) + E.hav(pts[pts.length - 1], b);
+        if (real < l.km * 1.25 + 0.05) return;                 // tidak jauh beda: biarkan
+        var el = $('[data-walk="' + i + '"]', body); if (!el || el.querySelector(".walk-real")) return;
+        var mn = Math.round(real / 4.5 * 60);
+        el.insertAdjacentHTML("beforeend", '<span class="walk-real">Lewat jalan sebenarnya ±' + km(real) + " (±" + mn + " mnt) — harus memutar</span>");
+      });
+    });
   }
   /* ------------------------------------------------------- bagikan rute sebagai gambar */
   var ICO_SHARE = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="12" r="2.5" fill="currentColor"/><circle cx="18" cy="6" r="2.5" fill="currentColor"/><circle cx="18" cy="18" r="2.5" fill="currentColor"/><path d="m8 11 8-4M8 13l8 4" stroke="currentColor" stroke-width="2"/></svg>';
