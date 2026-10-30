@@ -506,7 +506,7 @@
     var g = $("#guide"); if (g) g.remove();
     $("#app").classList.remove("guiding");
     S.guideSt = null; compass(false); if ($("#btnRecenter")) recenterBtn(false);
-    [GT.trip, GT.pip].forEach(function (T) { if (T.layer) { T.layer.remove(); T.layer = null; } T.me = null; });
+    [GT.trip, GT.pip].forEach(function (T) { if (T.layer) { T.layer.remove(); T.layer = null; } if (T.me) T.me.remove(); T.me = null; T.pos = null; T.anim = null; T.sig = null; });
     if (tripMap && tripLayer && !tripMap.hasLayer(tripLayer)) tripLayer.addTo(tripMap);
     $$(".st-body.is-now").forEach(function (b) { b.classList.remove("is-now"); });
   }
@@ -597,7 +597,7 @@
     var k = a[0].toFixed(5) + "," + a[1].toFixed(5) + ";" + b[0].toFixed(5) + "," + b[1].toFixed(5), c = FOOT[k];
     if (c) return c.pts;
     FOOT[k] = { pts: null };
-    footFetch(a, b, function (pts) { if (pts) { FOOT[k].pts = pts; paintGuideMap(S.guideSt); } });
+    footFetch(a, b, function (pts) { if (pts) { FOOT[k].pts = pts; FOOTVER++; paintGuideMap(S.guideSt); } });
     return null;
   }
   /* Ruas dari posisiku ke halte berikutnya: diperbarui bila sudah bergeser >35 m (paling cepat tiap 12 dtk). */
@@ -610,66 +610,114 @@
     footFetch(me, tgt, function (pts) { mine.busy = false; if (pts && LIVEW === mine) { mine.pts = pts; paintGuideMap(S.guideSt); } });
     return keep;
   }
-  function drawWalk(layer, a, b, live) {
+  /* Garis jalan kaki. Bila "dyn", titik awalnya (posisiku) diperbarui tiap frame tanpa menggambar ulang. */
+  function drawWalk(T, a, b, live, dyn) {
     if (!a || !b) return;
     if (E.hav(a, b) < 0.015) return;
     var pts = live ? liveFootPath(a, b) : footPath(a, b);
-    var line = pts && pts.length > 1 ? [a].concat(pts, [b]) : [a, b];
-    L.polyline(line, { color: "#fff", weight: 9, opacity: .85, dashArray: "0.1 12", lineCap: "round" }).addTo(layer);
-    L.polyline(line, { color: "#1A73E8", weight: 6, opacity: 1, dashArray: "0.1 12", lineCap: "round" }).addTo(layer);
+    var rest = pts && pts.length > 1 ? pts.concat([b]) : [b];
+    var w = L.polyline([a].concat(rest), { color: "#fff", weight: 9, opacity: .85, dashArray: "0.1 12", lineCap: "round" }).addTo(T.layer);
+    var c = L.polyline([a].concat(rest), { color: "#1A73E8", weight: 6, opacity: 1, dashArray: "0.1 12", lineCap: "round" }).addTo(T.layer);
+    if (dyn) T.dyn.push({ lines: [w, c], rest: rest });
   }
+  var FOOTVER = 0;
+  /*
+   * Peta pendampingan, dibuat mulus seperti Google Maps:
+   *  - garis/halte (bagian "statis") hanya digambar ulang bila ada yang berubah (halte tercapai, fase, rute jalan kaki);
+   *  - titik posisiku TIDAK dibuat ulang: ia meluncur halus dari posisi lama ke posisi GPS baru (animasi per frame),
+   *    garis yang berawal dari posisiku ikut bergeser, dan peta mengikuti titik itu frame demi frame.
+   */
   function drawGuide(map, T, follow) {
     var st = S.guideSt || {};
-    if (T.layer) T.layer.remove();
-    T.layer = L.featureGroup().addTo(map);
-    var it = S.guide && S.guide.it, me = st.lat ? [st.lat, st.lon] : S.myPos || null;
+    var target = st.lat ? [st.lat, st.lon] : S.myPos || null;
+    var it = S.guide && S.guide.it;
     var rides = it ? it.legs.filter(function (l) { return l.type === "ride"; }) : [];
-    function walk(a, b, live) { drawWalk(T.layer, a, b, live); }
-    if (rides.length) {
-      var off = [], n = 0;
-      rides.forEach(function (l) { off.push(n); n += l.stops.length; });
-      var dIdx = n, cur = st.cursor == null ? -1 : st.cursor, nxt = st.next == null ? 0 : st.next, phase = st.phase || "walk";
-      var legOf = function (i) { for (var q = rides.length - 1; q >= 0; q--) if (i >= off[q]) return q; return 0; };
-      var riding = (phase === "ride" || phase === "wait") && cur >= 0 && cur < dIdx;
-      var startLeg = rides.length, startK = 0;
-      if (phase === "done") startLeg = rides.length;
-      else if (riding) { startLeg = legOf(cur); startK = cur - off[startLeg]; }
-      else {
-        if (nxt < dIdx) { startLeg = legOf(nxt); startK = 0; }
-        walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p, true);
-      }
-      // Menunggu di halte naik tapi masih agak jauh darinya: tetap tunjukkan jalan ke halte.
-      if (phase === "wait" && riding && me) walk(me, rides[startLeg].stops[startK].p, true);
-      for (var li = startLeg; li < rides.length; li++) {
-        var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride";
-        var fromP = onBus && me ? me : l.stops[k0].p;
-        var pts = shapeSlice(l.line, l.dirIndex, fromP, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
-        // Sambungkan garis tepat ke halte (bentuk rute berhenti di titik bentuk terdekat, bukan di halte).
-        pts = [onBus && me ? me : l.stops[k0].p].concat(pts, [l.stops[l.stops.length - 1].p]);
-        L.polyline(pts, { color: "#fff", weight: 9, opacity: .9 }).addTo(T.layer);
-        L.polyline(pts, { color: lc(l), weight: 6 }).addTo(T.layer);
-        for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
-          var mk = L.marker(l.stops[k].p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(T.layer);
-          if (!follow && (k === k0 || k === l.stops.length - 1)) mk.bindTooltip(l.stops[k].n, { className: "lm-tip", direction: "top", offset: [0, -6] });
+    var onBusNow = st.phase === "ride";
+    var sig = [it ? 1 : 0, target ? 1 : 0, st.cursor, st.next, st.phase, LIVEW && LIVEW.pts ? LIVEW.pts.length + "@" + LIVEW.at : "-", FOOTVER,
+      onBusNow && target ? target[0].toFixed(4) + "," + target[1].toFixed(4) : "", follow ? "p" : "t"].join("|");
+    if (sig !== T.sig || !T.layer || !map.hasLayer(T.layer)) {
+      T.sig = sig;
+      if (T.layer) T.layer.remove();
+      T.layer = L.featureGroup().addTo(map);
+      T.dyn = [];
+      var me = T.pos || target;
+      var walk = function (a, b, live) { drawWalk(T, a, b, live, live); };
+      if (rides.length) {
+        var off = [], n = 0;
+        rides.forEach(function (l) { off.push(n); n += l.stops.length; });
+        var dIdx = n, cur = st.cursor == null ? -1 : st.cursor, nxt = st.next == null ? 0 : st.next, phase = st.phase || "walk";
+        var legOf = function (i) { for (var q = rides.length - 1; q >= 0; q--) if (i >= off[q]) return q; return 0; };
+        var riding = (phase === "ride" || phase === "wait") && cur >= 0 && cur < dIdx;
+        var startLeg = rides.length, startK = 0;
+        if (phase === "done") startLeg = rides.length;
+        else if (riding) { startLeg = legOf(cur); startK = cur - off[startLeg]; }
+        else {
+          if (nxt < dIdx) { startLeg = legOf(nxt); startK = 0; }
+          walk(me, startLeg < rides.length ? rides[startLeg].stops[0].p : S.to.p, true);
         }
-        walk(l.stops[l.stops.length - 1].p, li + 1 < rides.length ? rides[li + 1].stops[0].p : S.to.p);
+        // Menunggu di halte naik tapi masih agak jauh darinya: tetap tunjukkan jalan ke halte.
+        if (phase === "wait" && riding && me) walk(me, rides[startLeg].stops[startK].p, true);
+        for (var li = startLeg; li < rides.length; li++) {
+          var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride" && me;
+          var pts = shapeSlice(l.line, l.dirIndex, onBus ? me : l.stops[k0].p, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
+          // Sambungkan garis tepat ke halte (bentuk rute berhenti di titik bentuk terdekat, bukan di halte).
+          var rest = pts.concat([l.stops[l.stops.length - 1].p]);
+          var head = onBus ? me : l.stops[k0].p;
+          var w = L.polyline([head].concat(rest), { color: "#fff", weight: 9, opacity: .9 }).addTo(T.layer);
+          var c = L.polyline([head].concat(rest), { color: lc(l), weight: 6 }).addTo(T.layer);
+          if (onBus) T.dyn.push({ lines: [w, c], rest: rest });
+          for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
+            var mk = L.marker(l.stops[k].p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(T.layer);
+            if (!follow && (k === k0 || k === l.stops.length - 1)) mk.bindTooltip(l.stops[k].n, { className: "lm-tip", direction: "top", offset: [0, -6] });
+          }
+          walk(l.stops[l.stops.length - 1].p, li + 1 < rides.length ? rides[li + 1].stops[0].p : S.to.p);
+        }
+        if (S.to && S.to.p) L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(T.layer);
       }
-      if (S.to && S.to.p) L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(T.layer);
     }
-    if (me) T.me = L.marker(me, { icon: meIcon(), zIndexOffset: 1000, interactive: false }).addTo(T.layer); else T.me = null;
-    if (follow) {
-      if (me) map.setView(me, Math.max(map.getZoom() || 0, 17), { animate: false });
-      else { try { map.fitBounds(T.layer.getBounds(), { padding: [16, 16], maxZoom: 17 }); } catch (e) { } }
+    // Titik posisiku: satu penanda tetap di lapisan sendiri.
+    if (target) {
+      if (!T.me || !map.hasLayer(T.me)) { T.me = L.marker(T.pos || target, { icon: meIcon(), zIndexOffset: 1000, interactive: false }).addTo(map); }
+    } else if (T.me) { T.me.remove(); T.me = null; }
+    T.map = map; T.followMode = follow;
+    if (!target) {
+      if (follow) { try { map.fitBounds(T.layer.getBounds(), { padding: [16, 16], maxZoom: 17 }); } catch (e) { } }
+      else if (!T.fitted) { T.fitted = true; try { map.fitBounds(T.layer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
       return;
     }
-    // Peta perjalanan: seperti Google Maps — mengikuti posisimu (mulai langsung zoom ke posisimu);
-    // bila peta digeser sendiri, berhenti mengikuti sampai "Pusatkan" ditekan.
-    hookTripMapFollow();
-    if (T.follow && me) {
-      T.prog = true;
-      if (!T.zoomed) map.setView(me, 17, { animate: false }); else map.panTo(me, { animate: true, duration: 0.6 });
-      T.prog = false; T.fitted = true; T.zoomed = true; recenterBtn(false);
-    } else if (!T.fitted && !me) { T.fitted = true; try { map.fitBounds(T.layer.getBounds(), { padding: [30, 30], maxZoom: 17 }); } catch (e) { } }
+    if (!follow) hookTripMapFollow();
+    // Lompatan pertama: langsung zoom ke posisiku.
+    if (!T.pos || (!follow && T.follow && !T.zoomed)) {
+      T.pos = target.slice();
+      T.me.setLatLng(T.pos); moveDyn(T, T.pos);
+      if (follow) map.setView(T.pos, Math.max(map.getZoom() || 0, 17), { animate: false });
+      else if (T.follow) { T.prog = true; map.setView(T.pos, 17, { animate: false }); T.prog = false; T.zoomed = true; T.fitted = true; recenterBtn(false); }
+      return;
+    }
+    glide(T, target);
+  }
+  function moveDyn(T, p) {
+    (T.dyn || []).forEach(function (d) { var ll = [p].concat(d.rest); d.lines.forEach(function (x) { x.setLatLngs(ll); }); });
+  }
+  /* Animasi halus dari posisi tampilan sekarang ke posisi GPS terbaru (durasi ≈ jeda antar-GPS). */
+  function glide(T, target) {
+    var now = performance.now();
+    var dur = Math.max(250, Math.min(1500, T.lastFix ? now - T.lastFix : 1000));
+    T.lastFix = now;
+    if (E.hav(T.pos, target) > 0.5) dur = 0;                     // lompatan jauh (GPS meloncat): langsung pindah
+    T.anim = { from: T.pos.slice(), to: target.slice(), t0: now, dur: dur };
+    if (!T.raf) T.raf = requestAnimationFrame(function step(ts) {
+      var a = T.anim; if (!a) { T.raf = 0; return; }
+      var f = a.dur ? Math.min(1, (performance.now() - a.t0) / a.dur) : 1;
+      var e = f < 1 ? f * (2 - f) : 1;                               // ease-out
+      T.pos = [a.from[0] + (a.to[0] - a.from[0]) * e, a.from[1] + (a.to[1] - a.from[1]) * e];
+      if (T.me) T.me.setLatLng(T.pos);
+      moveDyn(T, T.pos);
+      var map = T.map;
+      if (map && (T.followMode || T.follow)) { T.prog = true; map.setView(T.pos, map.getZoom(), { animate: false }); T.prog = false; }
+      if (f >= 1) { T.anim = null; T.raf = 0; return; }
+      T.raf = requestAnimationFrame(step);
+    });
   }
   /* Arah hadap dari kompas HP (MainActivity) → putar "senter" tanpa menggambar ulang peta. */
   window.__lumiHeading = function (deg) {
@@ -723,7 +771,7 @@
   /* Mode PiP (jendela kecil) saat pendampingan: hanya kartu pendampingan yang tampil. */
   function dropPipMap() {
     if (!GT.pip.map) return;
-    var m = GT.pip.map; GT.pip.map = null; GT.pip.layer = null; GT.pip.me = null;
+    var m = GT.pip.map; GT.pip.map = null; GT.pip.layer = null; GT.pip.me = null; GT.pip.pos = null; GT.pip.anim = null; GT.pip.sig = null;
     allMaps = allMaps.filter(function (x) { return x !== m; });
     try { m.remove(); } catch (e) { }
   }
@@ -759,11 +807,13 @@
   };
 
   /* ------------------------------------------------------- pengaturan */
-  // Satu-satunya layanan ber-key: CARTO Basemaps (peta). Input alamat sepenuhnya lewat Google Maps.
-  var DEFAULT_CFG = { basemapKey: "", basemap: "voyager" };
+  // Tidak ada layanan yang butuh API key: peta OpenFreeMap/OSM, alamat lewat Google Maps (Bagikan).
+  var DEFAULT_CFG = { basemap: "liberty" };
+  var MAPSTYLES_KEYS = { liberty: 1, bright: 1, positron: 1, osm: 1 };
   function cfg() {
     var c = store("cfg") || {};
-    if (!c.basemapKey && c.cartoKey && /^cb\d_/.test(c.cartoKey)) c.basemapKey = c.cartoKey;   // migrasi v1.1
+    // migrasi dari CARTO (v1–v2.3 lama): gaya lama → gaya OpenFreeMap yang mirip
+    if (!MAPSTYLES_KEYS[c.basemap]) c.basemap = c.basemap === "positron" ? "positron" : "liberty";
     var o = {}; for (var k in DEFAULT_CFG) o[k] = c[k] === undefined ? DEFAULT_CFG[k] : c[k];
     return o;
   }
@@ -1254,25 +1304,41 @@
   }
 
   /* ------------------------------------------------------- peta */
-  var BASEMAPS = { voyager: "rastertiles/voyager", positron: "light_all", dark: "dark_all" };
-  function tileFor(style, key, z, x, y) {
-    return "https://basemaps.cartocdn.com/" + style + "/" + z + "/" + x + "/" + y + ".png" + (key ? "?key=" + encodeURIComponent(key) : "");
+  /*
+   * Peta dasar gratis TANPA API key:
+   *  - OpenFreeMap (vektor, digambar MapLibre GL): tajam di semua zoom, zoom/geser halus, tanpa batas pemakaian.
+   *  - OpenStreetMap standar (raster) sebagai cadangan bila WebGL tidak tersedia.
+   */
+  var MAPSTYLES = {
+    liberty: { name: "Liberty (berwarna)", gl: "https://tiles.openfreemap.org/styles/liberty" },
+    bright: { name: "Bright (kontras)", gl: "https://tiles.openfreemap.org/styles/bright" },
+    positron: { name: "Positron (terang, polos)", gl: "https://tiles.openfreemap.org/styles/positron" },
+    osm: { name: "OpenStreetMap standar", raster: "https://tile.openstreetmap.org/{z}/{x}/{y}.png" }
+  };
+  var ATTR_OFM = '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/" target="_blank">OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>';
+  var ATTR_OSM = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+  var GL_OK = null;
+  function glOk() {
+    if (GL_OK !== null) return GL_OK;
+    try { var c = document.createElement("canvas"); GL_OK = !!(window.maplibregl && L.maplibreGL && (c.getContext("webgl2") || c.getContext("webgl"))); } catch (e) { GL_OK = false; }
+    return GL_OK;
   }
-  function tileUrl() {
-    var c = cfg(), style = BASEMAPS[c.basemap] || BASEMAPS.voyager;
-    // Format resmi dari CARTO: https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key=KEY
-    return "https://basemaps.cartocdn.com/" + style + "/{z}/{x}/{y}{r}.png" + (c.basemapKey ? "?key=" + encodeURIComponent(c.basemapKey) : "");
+  function mapStyleKey() { var b = cfg().basemap; return MAPSTYLES[b] ? b : "liberty"; }
+  function baseLayer() {
+    var st = MAPSTYLES[mapStyleKey()];
+    if (st.gl && glOk()) return L.maplibreGL({ style: st.gl, attribution: ATTR_OFM });
+    return L.tileLayer(MAPSTYLES.osm.raster, { maxZoom: 20, maxNativeZoom: 19, keepBuffer: 4, attribution: ATTR_OSM });
   }
   var allMaps = [];
-  var ATTR = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
   function makeMap(el) {
-    var m = L.map(el, { zoomControl: false, attributionControl: true, maxZoom: 20 }).setView(JKT, 12);
-    // Ubin peta asli hanya tersedia sampai zoom 18 di semua wilayah; zoom lebih dekat memperbesar ubin 18
-    // (bukan abu-abu kosong).
-    m._lumiTiles = L.tileLayer(tileUrl(), { maxZoom: 20, maxNativeZoom: 18, keepBuffer: 4, attribution: ATTR }).addTo(m);
+    var m = L.map(el, { zoomControl: false, attributionControl: true, maxZoom: 20, zoomSnap: 0.25, wheelPxPerZoomLevel: 90 }).setView(JKT, 12);
+    m._lumiTiles = baseLayer().addTo(m);
     m.attributionControl.setPrefix(false);
     allMaps.push(m);
     return m;
+  }
+  function applyBasemap() {
+    allMaps.forEach(function (m) { try { if (m._lumiTiles) m.removeLayer(m._lumiTiles); } catch (e) { } m._lumiTiles = baseLayer().addTo(m); });
   }
   function dotIcon(cls, color) {
     return L.divIcon({ className: "", html: '<div class="' + cls + '" style="--c:' + (color || "#1565D8") + '"></div>', iconSize: cls === "lm-stop" ? [12, 12] : [22, 22], iconAnchor: cls === "lm-stop" ? [6, 6] : [11, 11] });
@@ -1317,7 +1383,7 @@
       L.marker(S.from.p, { icon: dotIcon("lm-end") }).addTo(tripLayer);
       L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(tripLayer);
       tripMap.fitBounds(tripLayer.getBounds(), { padding: [30, 30] });
-      if (GT.trip.layer) { GT.trip.layer.remove(); GT.trip.layer = null; GT.trip.me = null; }
+      if (GT.trip.layer) { GT.trip.layer.remove(); GT.trip.layer = null; } if (GT.trip.me) { GT.trip.me.remove(); GT.trip.me = null; } GT.trip.sig = null;
       if (S.guide && S.guide.it === it) { GT.trip.fitted = false; GT.trip.zoomed = false; GT.trip.follow = true; paintGuideMap(S.guideSt); }
       else recenterBtn(false);
     }, 60);
@@ -1775,7 +1841,7 @@
       "<li>Rute non-BRT, Mikrotrans, Royaltrans: GTFS Transjakarta 2021 via <a data-url=\"https://github.com/akherlan/transjakartagtfs\">akherlan/transjakartagtfs</a> — sebagian rute mungkin sudah berubah.</li>" +
       "<li>Koordinat stasiun KA: data sarana prasarana Kemenhub via <a data-url=\"https://github.com/Rebornian48/map-visualizer\">Rebornian48/map-visualizer</a>.</li>" +
       "<li>Urutan stasiun KRL, MRT, LRT, KA Bandara: Wikipedia & pengumuman operator (2026).</li>" +
-      "<li>Peta: © OpenStreetMap contributors, © CARTO (Basemaps). Alamat: Google Maps (dibagikan ke Lumi). Jarak jalan untuk ojol: OSRM.</li></ul>" +
+      "<li>Peta: OpenFreeMap © OpenMapTiles, data © OpenStreetMap contributors. Alamat: Google Maps (dibagikan ke Lumi). Jarak jalan untuk ojol: OSRM.</li></ul>" +
       "<p>Data mencakup " + (c.TJ || 0) + " rute Transjakarta, " + (c.MIKRO || 0) + " Mikrotrans, " + (c.ROYAL || 0) + " Royaltrans, " + (c.KRL || 0) + " lintas KRL, MRT, " + ((c.LRT || 0) + (c.LRTJ || 0)) + " lintas LRT, KA Bandara, dan Whoosh.</p></div>";
     html += '<div class="info-card"><h3>Tentang Lumi</h3><p>Lumi Transportation v2.3. Perencana rute bekerja offline di ponsel; internet hanya dipakai untuk peta, pencarian alamat, dan jarak jalan untuk estimasi ojol.</p></div>';
     $("#infoBody").innerHTML = html;
@@ -1875,19 +1941,16 @@
     $("#sheetSettings").hidden = false; raiseSheet($("#sheetSettings"));
     renderSettings();
   }
-  function keyField(id, label, val, ph) {
-    return '<label class="set-field"><span>' + label + '</span><div class="key-row"><input id="' + id + '" type="password" autocomplete="off" spellcheck="false" placeholder="' + ph + '" value="' + esc(val) + '"><button type="button" data-show="' + id + '">Lihat</button></div></label>';
-  }
+
   function renderSettings(status) {
     var c = cfg(), places = savedPlaces();
     function st(k) { return status && status[0] === k ? '<div class="set-status ' + status[1] + '">' + esc(status[2]) + "</div>" : ""; }
-    var html = gtfsCardHTML() + changesHistoryHTML() + '<div class="set-card"><h3>Peta (CARTO Basemaps)</h3><p>Tempel API key dari email CARTO Basemaps (diawali <b>cb1_</b>) agar peta tampil tanpa watermark.</p>' +
-      keyField("setMapKey", "CARTO Basemaps API key", c.basemapKey, "cb1_…") +
-      '<label class="set-field"><span>Gaya peta</span><select id="setMap">' +
-      '<option value="voyager"' + (c.basemap === "voyager" ? " selected" : "") + '>Voyager (berwarna)</option>' +
-      '<option value="positron"' + (c.basemap === "positron" ? " selected" : "") + '>Positron (terang)</option>' +
-      '<option value="dark"' + (c.basemap === "dark" ? " selected" : "") + '>Dark Matter (gelap)</option></select></label>' +
-      '<div class="set-actions"><button class="btn-sec" id="testMap">Uji key peta</button><button class="btn-go" id="setSave" style="flex:1">Simpan</button></div>' + st("map") + "</div>";
+    var cur = mapStyleKey();
+    var html = gtfsCardHTML() + changesHistoryHTML() + '<div class="set-card"><h3>Peta</h3><p>Gratis tanpa API key: <b>OpenFreeMap</b> (data OpenStreetMap). Tajam di semua zoom dan halus saat digeser.</p>' +
+      '<label class="set-field"><span>Gaya peta</span><select id="setMap">' + Object.keys(MAPSTYLES).map(function (k) {
+        return '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" + esc(MAPSTYLES[k].name) + "</option>";
+      }).join("") + "</select></label>" + (glOk() ? "" : '<p style="margin:6px 0 0">Perangkat ini tidak mendukung WebGL, jadi peta memakai OpenStreetMap standar.</p>') +
+      st("map") + "</div>";
     html += '<div class="set-card"><h3>Alamat lewat Google Maps</h3><p>Ketuk kolom <b>Dari</b> atau <b>Ke</b> → <b>Cari di Google Maps</b>. Pilih tempatnya di Google Maps, ketuk <b>Bagikan</b>, lalu pilih <b>Lumi Transportation</b>. Lokasi otomatis terisi dan tersimpan di bawah ini.</p></div>';
     html += '<div class="set-card"><h3>Tempat tersimpan</h3><p>Tempat yang pernah kamu bagikan dari Google Maps. Muncul saat mengetik di kolom Dari/Ke.</p>' +
       (places.length ? places.map(function (pl, i) {
@@ -1899,22 +1962,10 @@
     $$("[data-show]", $("#settingsBody")).forEach(function (b) {
       b.addEventListener("click", function () { var i = $("#" + b.dataset.show); i.type = i.type === "password" ? "text" : "password"; b.textContent = i.type === "password" ? "Lihat" : "Sembunyi"; });
     });
-    function collect() { return { basemapKey: $("#setMapKey").value.trim(), basemap: $("#setMap").value }; }
-    $("#setSave").addEventListener("click", function () {
-      store("cfg", collect());
-      allMaps.forEach(function (m) { m._lumiTiles.setUrl(tileUrl()); });
-      renderSettings(["map", "ok", "Tersimpan."]);
-    });
-    $("#testMap").addEventListener("click", function () {
-      var n = collect();
-      function show(x) { renderSettings(x); $("#setMapKey").value = n.basemapKey; $("#setMap").value = n.basemap; }
-      if (!n.basemapKey) { show(["map", "err", "Isi CARTO Basemaps API key dulu."]); return; }
-      show(["map", "info", "Memuat contoh tile peta…"]);
-      var url = tileFor(BASEMAPS[n.basemap] || BASEMAPS.voyager, n.basemapKey, 12, 3263, 2118);
-      http(url, 12000, null, true).then(function (r) {
-        if (r.status === 200) show(["map", "ok", "Key peta diterima CARTO. Tekan Simpan agar dipakai."]);
-        else show(["map", "err", "CARTO membalas HTTP " + r.status + ". Cek kembali key di email Basemaps."]);
-      }).catch(function () { show(["map", "err", "Tidak bisa terhubung ke basemaps.cartocdn.com. Cek internet."]); });
+    $("#setMap").addEventListener("change", function () {
+      var c = cfg(); c.basemap = this.value; store("cfg", c);
+      applyBasemap();
+      renderSettings(["map", "ok", "Gaya peta diganti: " + MAPSTYLES[this.value].name + "."]);
     });
     $$("[data-del]", $("#settingsBody")).forEach(function (b) { b.addEventListener("click", function () { deletePlace(+b.dataset.del); renderSettings(); }); });
   }

@@ -69,6 +69,8 @@ public class MainActivity extends Activity {
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setAllowFileAccess(true);
+        // Identitas aplikasi untuk server peta (aturan pemakaian ubin OpenStreetMap meminta User-Agent yang jelas).
+        s.setUserAgentString(s.getUserAgentString() + " LumiTransportation/2.3 (Android)");
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(true);
         s.setUserAgentString(s.getUserAgentString() + " LumiTransportation/1.0");

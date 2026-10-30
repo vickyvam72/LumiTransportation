@@ -120,7 +120,7 @@
 **🎨 Look & feel**
 - **Light-blue** theme with a blue-gradient logo; welcome and permission screens that **fit on one screen**
 - Full route info: search routes (`9`, `13C`, `JAK.10`, `Bogor`, `MRT`), stop order, directions, variants, operating hours, and connections at each stop
-- **CARTO Basemaps** maps (bring your own API key in Settings)
+- **OpenFreeMap** vector maps (MapLibre GL) — free, no API key; Liberty, Bright, Positron or standard OpenStreetMap styles
 
 ---
 
@@ -231,7 +231,7 @@ Fares are estimates based on published rules (see [Fares used](#-fares-used)). P
 - ✅ **No** ads, analytics or trackers
 - ✅ Your location and saved places stay **on your phone**
 - ✅ Routes are computed on the phone; there is no Lumi server
-- ℹ️ Internet is used for: CARTO maps, reading Google Maps links, OSRM road distance (ride-hailing estimates), the official Transjakarta GTFS, and the route-change feed on GitHub
+- ℹ️ Internet is used for: OpenFreeMap/OpenStreetMap maps, reading Google Maps links, OSRM road distance (ride-hailing estimates), the official Transjakarta GTFS, and the route-change feed on GitHub
 
 ---
 
@@ -241,7 +241,7 @@ Fares are estimates based on published rules (see [Fares used](#-fares-used)). P
 |---|---|
 | App | **Java** (plain Android SDK, no extra libraries) + **WebView** |
 | UI | Plain HTML, CSS and JavaScript, Plus Jakarta Sans font |
-| Maps | **Leaflet** + CARTO Basemaps (OpenStreetMap) |
+| Maps | **Leaflet** + **MapLibre GL** (maplibre-gl-leaflet) with **OpenFreeMap** vector tiles (OpenStreetMap); standard OSM tiles as fallback |
 | Routing | Multimodal graph + Dijkstra + combination search (`engine.js`), offline |
 | Route data | Official Transjakarta GTFS (processed on the phone by `GtfsImporter.java`) |
 | Background | Foreground service (GPS guidance), JobScheduler (hourly and daily route checks) |
@@ -282,7 +282,7 @@ Lumi Transportation exists thanks to the open data, open-source projects and ser
 | Wikipedia & news media (Kompas, detik, CNA, Bisnis, CNN Indonesia, Suara, IDN Times, etc.) | Route changes (e.g. corridor 9 via toll), latest fares and operating hours |
 
 ### 🗺️ Maps & location
-[OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · [CARTO Basemaps](https://carto.com/basemaps) · [OSRM](https://project-osrm.org/) (road distance for ride-hailing estimates) · [Google Maps](https://maps.google.com) (address search via Share)
+[OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · [OpenFreeMap](https://openfreemap.org) & [OpenMapTiles](https://openmaptiles.org) · [MapLibre GL JS](https://maplibre.org) · [OSRM](https://project-osrm.org/) (road distance for ride-hailing estimates) · [Google Maps](https://maps.google.com) (address search via Share)
 
 ### 📚 Libraries & assets
 [Leaflet](https://github.com/Leaflet/Leaflet) by Volodymyr Agafonkin et al. · [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) by Tokotype (SIL OFL) · [Eclipse JDT ecj](https://github.com/eclipse-jdt/eclipse.jdt.core) · Android build tools (aapt2, d8, apksigner)

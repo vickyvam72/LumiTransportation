@@ -121,7 +121,7 @@
 - Tema **biru muda** dengan logo gradasi biru, layar sambutan dan izin yang **muat satu layar**
 - Info rute lengkap: cari rute (`9`, `13C`, `JAK.10`, `Bogor`, `MRT`), lihat urutan halte, arah, varian, jam operasional, dan rute sambungan di tiap halte
 - Nama trayek resmi (mis. **9N Pinang Ranti – Simpang Cawang**). Rute memutar dipecah menjadi dua arah, dan setiap varian diberi keterangan singkat: *via Tol*, *lewat Senen*, *tanpa ASEAN*, *mulai Bundaran Senayan*, *putar balik di Harmoni*
-- Peta **CARTO Basemaps** (bisa pakai API key sendiri di Pengaturan)
+- Peta **OpenFreeMap** (vektor, MapLibre GL) — gratis tanpa API key; pilihan gaya Liberty, Bright, Positron, atau OpenStreetMap standar
 
 ---
 
@@ -260,7 +260,7 @@ Tarif adalah perkiraan berdasarkan aturan yang diumumkan (lihat [Tarif yang dipa
 - ✅ **Tanpa** iklan, analitik, atau pelacak
 - ✅ Lokasi dan tempat tersimpan hanya ada **di HP-mu**
 - ✅ Rute dihitung di HP; tidak ada server Lumi
-- ℹ️ Internet dipakai untuk: peta CARTO, membaca tautan Google Maps, jarak jalan OSRM (estimasi ojol), GTFS resmi Transjakarta, dan umpan perubahan rute dari GitHub
+- ℹ️ Internet dipakai untuk: peta OpenFreeMap/OpenStreetMap, membaca tautan Google Maps, jarak jalan OSRM (estimasi ojol), GTFS resmi Transjakarta, dan umpan perubahan rute dari GitHub
 
 ---
 
@@ -270,7 +270,7 @@ Tarif adalah perkiraan berdasarkan aturan yang diumumkan (lihat [Tarif yang dipa
 |---|---|
 | Aplikasi | **Java** (Android SDK, tanpa library tambahan) + **WebView** |
 | Antarmuka | HTML, CSS, JavaScript murni, font Plus Jakarta Sans |
-| Peta | **Leaflet** + CARTO Basemaps (OpenStreetMap) |
+| Peta | **Leaflet** + **MapLibre GL** (maplibre-gl-leaflet) dengan ubin vektor **OpenFreeMap** (OpenStreetMap); cadangan ubin OSM standar |
 | Mesin rute | Graf multimoda + Dijkstra + enumerasi kombinasi (`engine.js`), berjalan offline |
 | Data rute | GTFS resmi Transjakarta (diproses di HP oleh `GtfsImporter.java`) |
 | Latar belakang | Foreground service (pendampingan GPS), JobScheduler (cek rute tiap jam & harian) |
@@ -345,7 +345,7 @@ Lumi Transportation bisa berdiri berkat data terbuka, proyek open-source, dan la
 | Wikipedia & media (Kompas, detik, CNA, Bisnis, CNN Indonesia, Suara, IDN Times, dll.) | Perubahan rute (mis. koridor 9 via tol), tarif terbaru, dan jam operasional |
 
 ### 🗺️ Peta & lokasi
-[OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · [CARTO Basemaps](https://carto.com/basemaps) · [OSRM](https://project-osrm.org/) (jarak jalan untuk estimasi ojol) · [Google Maps](https://maps.google.com) (pencarian alamat lewat fitur Bagikan)
+[OpenStreetMap](https://www.openstreetmap.org/copyright) contributors · [OpenFreeMap](https://openfreemap.org) & [OpenMapTiles](https://openmaptiles.org) · [MapLibre GL JS](https://maplibre.org) · [OSRM](https://project-osrm.org/) (jarak jalan untuk estimasi ojol) · [Google Maps](https://maps.google.com) (pencarian alamat lewat fitur Bagikan)
 
 ### 📚 Library & aset
 [Leaflet](https://github.com/Leaflet/Leaflet) oleh Volodymyr Agafonkin dkk. · [Plus Jakarta Sans](https://github.com/tokotype/PlusJakartaSans) oleh Tokotype (SIL OFL) · [Eclipse JDT ecj](https://github.com/eclipse-jdt/eclipse.jdt.core) · Android build tools (aapt2, d8, apksigner)
