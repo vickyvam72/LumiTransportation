@@ -1,0 +1,20 @@
+name: map-check
+on:
+  push:
+    branches: [map-check]
+    paths: [".github/workflows/map-check.yml", "check/map_check.js", "app/src/main/assets/www/**"]
+permissions:
+  contents: write
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i playwright@1.47.2 --no-save --silent && npx playwright install --with-deps chromium
+      - run: node check/map_check.js | tee check/map_check.log
+      - run: |
+          git config user.name "lumi-route-watch[bot]"
+          git config user.email "lumi-route-watch@users.noreply.github.com"
+          git add check/*.png check/map_check.log && git commit -qm "map-check: hasil" && git push origin HEAD:map-check

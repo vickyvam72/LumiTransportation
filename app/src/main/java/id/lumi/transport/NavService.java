@@ -137,7 +137,7 @@ public class NavService extends Service {
         };
         try {
             if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER))
-                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 5, ll, Looper.getMainLooper());
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, ll, Looper.getMainLooper());   // tiap detik → gerakan peta halus
             if (lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))
                 lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 4000, 10, ll, Looper.getMainLooper());
             Location best = null;
