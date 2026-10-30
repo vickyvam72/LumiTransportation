@@ -124,7 +124,7 @@ def diff(old_idx, new_idx):
     for code, nr in b.items():
         orr = a.get(code)
         if orr is None:
-            out.append({"k": "add", "code": code, "name": nr["name"], "text": "Rute baru: " + nr["name"]})
+            out.append({"k": "add", "code": code, "name": nr["name"], "text": "Rute baru: " + nr["name"], "a": nr["main"]})
             continue
         old_s = list(dict.fromkeys(x for l in orr["main"].values() for x in l))
         new_s = list(dict.fromkeys(x for l in nr["main"].values() for x in l))
@@ -146,10 +146,17 @@ def diff(old_idx, new_idx):
             parts.append("Pola perjalanan %s (%d → %d, mis. varian lewat tol)" % (
                 "bertambah" if nr["patterns"] > orr["patterns"] else "berkurang", orr["patterns"], nr["patterns"]))
         if parts:
-            out.append({"k": "chg", "code": code, "name": nr["name"], "text": ". ".join(parts)})
+            it = {"k": "chg", "code": code, "name": nr["name"], "text": ". ".join(parts), "b": orr["main"], "a": nr["main"]}
+            if orr["name"] and nr["name"] != orr["name"]:
+                it["on"] = orr["name"]
+            if added:
+                it["add"] = added
+            if removed:
+                it["rm"] = removed
+            out.append(it)
     for code, orr in a.items():
         if code not in b:
-            out.append({"k": "del", "code": code, "name": orr["name"], "text": "Rute tidak ada lagi di data resmi"})
+            out.append({"k": "del", "code": code, "name": orr["name"], "text": "Rute tidak ada lagi di data resmi", "b": orr["main"]})
     return out
 
 
@@ -185,7 +192,8 @@ def main():
     if items:
         feed["rev"] = int(feed.get("rev", 0)) + 1
         feed["latest"] = {"date": now, "items": items}
-        feed["history"] = ([{"date": now, "items": items}] + feed.get("history", []))[:50]
+        slim = [{k: v for k, v in x.items() if k not in ("a", "b")} for x in items]
+        feed["history"] = ([{"date": now, "items": slim}] + feed.get("history", []))[:50]
         print("%d perubahan rute, rev %d" % (len(items), feed["rev"]))
     else:
         print("GTFS berubah tanpa perubahan rute" if old_idx else "Ringkasan rute pertama dibuat")

@@ -656,3 +656,50 @@ html.pip #guide { top: 0 !important; left: 0 !important; right: 0 !important; bo
   padding: 10px 14px; border-radius: 999px; background: #fff; color: var(--ink); font-weight: 800; font-size: 13.5px; box-shadow: 0 6px 18px rgba(19,35,75,.22); }
 .map-recenter svg { width: 16px; height: 16px; }
 .map-recenter[hidden] { display: none; }
+
+/* ---- daftar perubahan rute: bisa diketuk, "tampilkan lainnya" ---- */
+.chg-row { cursor: pointer; }
+.chg-acts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 2px; }
+.chg-acts .st-toggle { padding: 4px 0; }
+.chg-more-li { justify-content: center; }
+.chg-more { width: 100%; margin-top: 4px; padding: 10px; border-radius: 12px; background: var(--lamp-soft, #EAF4FD); color: var(--ink); font-weight: 800; font-size: 13.5px; }
+
+/* ---- layar sebelum / sesudah ---- */
+.chg-body { padding: 14px 16px 40px; }
+.chg-head { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+.chg-head .badge { font-size: 15px; padding: 6px 10px; }
+.chg-head b { display: block; font-size: 17px; letter-spacing: -0.01em; }
+.chg-head span { font-size: 12.5px; color: var(--muted); }
+.chg-name { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; font-size: 13.5px; display: grid; gap: 2px; }
+.chg-name span { font-size: 11.5px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.chg-name s { color: #9B2C1F; }
+.chg-name b { color: #11643A; }
+.chg-sum { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.cs { font-size: 12px; font-weight: 800; padding: 4px 9px; border-radius: 999px; background: var(--lamp-soft, #EAF4FD); color: var(--ink); }
+.cs.add { background: #E3F6EA; color: #11643A; }
+.cs.del { background: #FDECEA; color: #9B2C1F; }
+.chg-tabs { display: flex; background: #E8EEF6; border-radius: 12px; padding: 3px; margin-bottom: 8px; }
+.chg-tabs button { flex: 1; padding: 8px 6px; border-radius: 10px; font-weight: 800; font-size: 13px; color: var(--muted); background: none; }
+.chg-tabs button.is-on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(19,35,75,.12); }
+.chg-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--muted); margin: 0 2px 10px; }
+.chg-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.lg { width: 10px; height: 10px; border-radius: 50%; background: #B7C3D3; display: inline-block; }
+.lg.add { background: #1E9E5A; } .lg.del { background: #D64535; }
+.chg-dir { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin-bottom: 12px; }
+.chg-dir-h { font-weight: 800; font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; }
+.chg-dir-h small { font-weight: 700; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.chg-stops { list-style: none; margin: 0; padding: 0; }
+.chg-stops li { position: relative; display: flex; align-items: center; gap: 10px; padding: 5px 0 5px 2px; font-size: 13.5px; }
+.chg-stops li i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #B7C3D3; position: relative; z-index: 1; }
+.chg-stops li:not(:last-child)::before { content: ""; position: absolute; left: 6px; top: 50%; height: 100%; width: 2px; background: #E1E7EF; }
+.chg-stops li.add i { background: #1E9E5A; box-shadow: 0 0 0 3px #E3F6EA; }
+.chg-stops li.del i { background: #D64535; box-shadow: 0 0 0 3px #FDECEA; }
+.chg-stops li.add span { color: #11643A; font-weight: 700; }
+.chg-stops li.del span { color: #9B2C1F; text-decoration: line-through; }
+.chg-stops li em { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 6px; }
+.chg-stops li.add em { background: #E3F6EA; color: #11643A; }
+.chg-stops li.del em { background: #FDECEA; color: #9B2C1F; }
+.chg-body[data-view="b"] .chg-stops li.add, .chg-body[data-view="a"] .chg-stops li.del { display: none; }
+.chg-body[data-view="b"] .chg-stops li.del span { text-decoration: none; }
+.chg-body[data-view="b"] .chg-legend, .chg-body[data-view="a"] .chg-legend { visibility: hidden; }
+.chg-note { font-size: 12.5px; color: var(--muted); margin: 0 0 12px; }

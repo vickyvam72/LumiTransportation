@@ -66,6 +66,7 @@ public class RouteUpdater {
             List<RouteDiff.Item> items = RouteDiff.diff(read(idxFile), idx.toString());
             r.changes = items.size();
             if (!items.isEmpty()) {
+                saveDetail(ctx, date, RouteDiff.detailJson(items));
                 addHistory(ctx, RouteDiff.toJson(date, items));
                 prefs(ctx).edit().putBoolean("unseen", true).apply();
                 if (notify) notifyChanges(ctx, items);
@@ -74,6 +75,32 @@ public class RouteUpdater {
         write(idxFile, idx.toString());
         prefs(ctx).edit().putLong("lastOk", System.currentTimeMillis()).putString("lastDate", date).apply();
         return r;
+    }
+
+    /* Detail "sebelum / sesudah" (urutan halte lengkap) disimpan terpisah per pengecekan agar riwayat tetap ringan;
+       dibaca hanya saat pengguna membuka satu perubahan. */
+    static File detailDir(Context ctx) { File d = new File(ctx.getFilesDir(), "tj_changes_detail"); d.mkdirs(); return d; }
+    static String detailKey(String date) { return String.valueOf(date).replaceAll("[^0-9]", ""); }
+    static void saveDetail(Context ctx, String date, String json) {
+        try {
+            File d = detailDir(ctx);
+            write(new File(d, detailKey(date) + ".json"), json);
+            File[] fs = d.listFiles();
+            if (fs != null && fs.length > 30) {
+                java.util.Arrays.sort(fs, new java.util.Comparator<File>() { public int compare(File x, File y) { return y.getName().compareTo(x.getName()); } });
+                for (int i = 30; i < fs.length; i++) fs[i].delete();
+            }
+        } catch (Exception ignored) { }
+    }
+    /** Detail satu rute pada satu pengecekan: {"b":{arah:[halte..]},"a":{..}} atau null. */
+    public static String changeDetail(Context ctx, String date, String code) {
+        try {
+            File f = new File(detailDir(ctx), detailKey(date) + ".json");
+            if (!f.exists()) return null;
+            org.json.JSONObject o = new org.json.JSONObject(read(f));
+            org.json.JSONObject x = o.optJSONObject(code);
+            return x == null ? null : x.toString();
+        } catch (Exception e) { return null; }
     }
 
     /** Riwayat perubahan: satu entri JSON per baris, terbaru di atas, maks. 30. */

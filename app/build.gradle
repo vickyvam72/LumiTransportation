@@ -10,7 +10,7 @@ android {
         applicationId "id.lumi.transport"
         minSdk 24
         targetSdk 34
-        versionCode 34
+        versionCode 35
         versionName "2.3"
     }
 

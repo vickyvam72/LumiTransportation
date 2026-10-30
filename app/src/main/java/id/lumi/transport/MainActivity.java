@@ -695,6 +695,10 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void markChangesSeen() { RouteUpdater.markSeen(MainActivity.this); }
 
+        /** Urutan halte sebelum/sesudah untuk satu perubahan rute (lihat RouteUpdater.changeDetail). */
+        @JavascriptInterface
+        public String getChangeDetail(String date, String code) { return RouteUpdater.changeDetail(MainActivity.this, date, code); }
+
         /** Mulai mode pendampingan. spec = titik-titik rute (lihat GuideTracker). */
         @JavascriptInterface
         public void startGuide(final String spec, final String title) {

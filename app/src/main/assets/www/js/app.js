@@ -308,20 +308,140 @@
     var bln = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"][+m[2] - 1];
     return +m[3] + " " + bln + " " + m[1] + (m[4] ? ", " + m[4] + "." + m[5] : "");
   }
-  function changeItems(items, max) {
+  // Daftar perubahan: tiap baris bisa diketuk untuk melihat "Sebelum / Sesudah".
+  var CHG_REF = [];
+  function changeRow(x, date) {
     var KL = { add: ["add", "Baru"], del: ["del", "Dihapus"], chg: ["", "Berubah"] };
-    return '<ul class="chg-list">' + items.slice(0, max).map(function (x) {
-      var k = KL[x.k] || KL.chg;
-      var l = planner.searchLines(x.code)[0];
-      var code = l && l.code.replace(/[.\s-]/g, "").toUpperCase() === String(x.code).replace(/[.\s-]/g, "").toUpperCase() ? l : null;
-      return '<li><span class="chg-k ' + k[0] + '">' + k[1] + "</span><div>" + (code ? badge(code, "xs") + " " : "<b>" + esc(x.code) + "</b> ") +
-        esc(x.name || "") + '<br><span style="color:var(--muted)">' + esc(x.text) + "</span>" +
-        (code ? ' <button class="st-toggle" data-chgline="' + code.id + '">Lihat rute</button>' : "") + "</div></li>";
-    }).join("") + (items.length > max ? '<li style="color:var(--muted)">+' + (items.length - max) + " perubahan lain (lihat di Pengaturan)</li>" : "") + "</ul>";
+    var k = KL[x.k] || KL.chg, ref = CHG_REF.push({ x: x, date: date }) - 1;
+    var l = lineByCode(x.code);
+    return '<li class="chg-row" data-chg="' + ref + '"><span class="chg-k ' + k[0] + '">' + k[1] + "</span><div>" + (l ? badge(l, "xs") + " " : "<b>" + esc(x.code) + "</b> ") +
+      esc(x.name || "") + '<br><span style="color:var(--muted)">' + esc(x.text) + "</span>" +
+      '<div class="chg-acts"><button class="st-toggle" data-chgref="' + ref + '">Sebelum &amp; sesudah</button>' +
+      (l ? '<button class="st-toggle" data-chgline="' + l.id + '">Lihat rute</button>' : "") + "</div></div></li>";
+  }
+  function changeItems(items, max, date) {
+    var html = '<ul class="chg-list">' + items.slice(0, max).map(function (x) { return changeRow(x, date); }).join("");
+    if (items.length > max) {
+      var ref = CHG_REF.push({ more: items.slice(max), date: date }) - 1;
+      html += '<li class="chg-more-li"><button class="chg-more" data-chgmore="' + ref + '">Tampilkan ' + (items.length - max) + " perubahan lainnya</button></li>";
+    }
+    return html + "</ul>";
+  }
+  function lineByCode(code) {
+    var n = function (c) { return String(c).replace(/[.\s-]/g, "").toUpperCase(); };
+    var l = planner.searchLines(code)[0];
+    return l && n(l.code) === n(code) ? l : null;
   }
   function bindChangeLinks(root) {
-    $$("[data-chgline]", root).forEach(function (b) { b.addEventListener("click", function () { openLine(planner.byId[b.dataset.chgline], 0); }); });
+    $$("[data-chgline]", root).forEach(function (b) {
+      if (b._b) return; b._b = 1;
+      b.addEventListener("click", function (e) { e.stopPropagation(); openLine(planner.byId[b.dataset.chgline], 0); });
+    });
+    $$("[data-chgref]", root).forEach(function (b) {
+      if (b._b) return; b._b = 1;
+      b.addEventListener("click", function (e) { e.stopPropagation(); openChange(CHG_REF[+b.dataset.chgref]); });
+    });
+    $$(".chg-row", root).forEach(function (li) {
+      if (li._b) return; li._b = 1;
+      li.addEventListener("click", function () { openChange(CHG_REF[+li.dataset.chg]); });
+    });
+    $$("[data-chgmore]", root).forEach(function (b) {
+      if (b._b) return; b._b = 1;
+      b.addEventListener("click", function () {
+        var r = CHG_REF[+b.dataset.chgmore], li = b.closest("li"), ul = li.parentNode;
+        li.remove();
+        ul.insertAdjacentHTML("beforeend", r.more.map(function (x) { return changeRow(x, r.date); }).join(""));
+        bindChangeLinks(ul);
+      });
+    });
   }
+
+  /* ---- layar "Sebelum / Sesudah" satu perubahan rute ---- */
+  // Gabungkan urutan halte lama & baru (LCS): halte tetap, halte baru (+), halte yang tidak dilewati lagi (−).
+  function mergeStops(a, b) {
+    a = a || []; b = b || [];
+    var n = a.length, m = b.length, L2 = [];
+    for (var i = 0; i <= n; i++) { L2.push(new Array(m + 1).fill(0)); }
+    for (i = n - 1; i >= 0; i--) for (var j = m - 1; j >= 0; j--) L2[i][j] = a[i] === b[j] ? L2[i + 1][j + 1] + 1 : Math.max(L2[i + 1][j], L2[i][j + 1]);
+    var out = []; i = 0; j = 0;
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { out.push(["=", a[i]]); i++; j++; }
+      else if (L2[i + 1][j] >= L2[i][j + 1]) out.push(["-", a[i++]]);
+      else out.push(["+", b[j++]]);
+    }
+    while (i < n) out.push(["-", a[i++]]);
+    while (j < m) out.push(["+", b[j++]]);
+    return out;
+  }
+  // Teks lama "Halte baru: A, B dll. (5)" → ["A","B"] (untuk perubahan yang tercatat sebelum detail disimpan).
+  function parseList(text, label) {
+    // Nama halte bisa memuat titik ("Sbr. Jln. …"), jadi potong hanya di awal bagian berikutnya.
+    var re = new RegExp(label + ": (.*?)(?=\\. (?:Nama trayek|Halte baru|Tidak lagi lewat|Urutan halte|Pola perjalanan)|$)");
+    var m = String(text || "").match(re);
+    if (!m) return { list: [], total: 0 };
+    var body = m[1].replace(/\.$/, ""), tot = body.match(/ dll\. \((\d+)\)$/);
+    var list = body.replace(/ dll\. \(\d+\)$/, "").split(", ").filter(Boolean);
+    return { list: list, total: tot ? +tot[1] : list.length };
+  }
+  function openChange(ref) {
+    if (!ref || !ref.x) return;
+    var x = ref.x, l = lineByCode(x.code), det = null;
+    try { var raw = NATIVE && NATIVE.getChangeDetail ? NATIVE.getChangeDetail(ref.date, x.code) : null; det = raw ? JSON.parse(raw) : null; } catch (e) { det = null; }
+    var sheet = $("#sheetChg");
+    if (!sheet) {
+      sheet = document.createElement("div"); sheet.className = "sheet"; sheet.id = "sheetChg"; sheet.hidden = true;
+      sheet.innerHTML = '<div class="sheet-bar"><button class="back" data-close aria-label="Kembali"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>' +
+        '<div class="sheet-title">Perubahan rute</div></div><div class="sheet-body chg-body" id="chgBody"></div>';
+      $("#app").appendChild(sheet);
+      $("[data-close]", sheet).addEventListener("click", function () { sheet.hidden = true; });
+    }
+    var KL = { add: "Rute baru", del: "Rute dihapus", chg: "Rute berubah" };
+    var pa = parseList(x.text, "Halte baru"), pr = parseList(x.text, "Tidak lagi lewat");
+    var added = x.add || pa.list, removed = x.rm || pr.list, nAdd = x.add ? x.add.length : pa.total, nRm = x.rm ? x.rm.length : pr.total;
+    var html = '<div class="chg-head">' + (l ? badge(l) : "<b>" + esc(x.code) + "</b>") + "<div><b>" + esc(x.name || x.code) + "</b><span>" + (KL[x.k] || KL.chg) + " · " + esc(fmtDate(ref.date)) + "</span></div></div>";
+    if (x.on) html += '<div class="chg-name"><span>Nama trayek</span><s>' + esc(x.on) + "</s><b>" + esc(x.name) + "</b></div>";
+    var sum = [];
+    if (nAdd) sum.push('<span class="cs add">+' + nAdd + " halte baru</span>");
+    if (nRm) sum.push('<span class="cs del">−' + nRm + " halte tidak dilewati</span>");
+    if (/Urutan halte berubah/.test(x.text)) sum.push('<span class="cs">Urutan halte berubah</span>');
+    if (/Pola perjalanan/.test(x.text)) sum.push('<span class="cs">' + esc(x.text) + "</span>");
+    if (sum.length) html += '<div class="chg-sum">' + sum.join("") + "</div>";
+    function dirTitle(list) { return list && list.length ? "Arah " + list[list.length - 1] : "Arah"; }
+    if (det && (Object.keys(det.b || {}).length || Object.keys(det.a || {}).length)) {
+      html += '<div class="chg-tabs" role="tablist"><button data-v="m" class="is-on">Perbandingan</button><button data-v="b">Sebelum</button><button data-v="a">Sesudah</button></div>' +
+        '<div class="chg-legend"><span><i class="lg add"></i>Halte baru</span><span><i class="lg del"></i>Tidak dilewati lagi</span><span><i class="lg"></i>Tetap</span></div>';
+      var keys = []; Object.keys(det.b || {}).concat(Object.keys(det.a || {})).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); });
+      keys.forEach(function (k) {
+        var b = (det.b || {})[k], a = (det.a || {})[k], mg = mergeStops(b, a);
+        var nb = mg.filter(function (r) { return r[0] !== "+"; }).length, na = mg.filter(function (r) { return r[0] !== "-"; }).length;
+        html += '<div class="chg-dir"><div class="chg-dir-h">' + esc(dirTitle(a && a.length ? a : b)) + '<small>' + (b ? nb + " → " : "") + (a ? na : 0) + " halte</small></div><ol class=\"chg-stops\">" +
+          mg.map(function (r) { return '<li class="' + (r[0] === "+" ? "add" : r[0] === "-" ? "del" : "same") + '"><i></i><span>' + esc(r[1]) + "</span>" + (r[0] === "+" ? "<em>baru</em>" : r[0] === "-" ? "<em>dihapus</em>" : "") + "</li>"; }).join("") + "</ol></div>";
+      });
+    } else {
+      // Perubahan lama: urutan halte sebelumnya tidak tersimpan. Tampilkan rute sekarang + daftar yang berubah.
+      html += '<p class="chg-note">Urutan halte sebelum perubahan ini belum tersimpan (tercatat sebelum fitur ini ada). Di bawah: halte yang berubah dan rute saat ini.</p>';
+      if (removed.length) html += '<div class="chg-dir"><div class="chg-dir-h">Tidak dilewati lagi</div><ol class="chg-stops">' + removed.map(function (n) { return '<li class="del"><i></i><span>' + esc(n) + "</span><em>dihapus</em></li>"; }).join("") + "</ol>" +
+        (nRm > removed.length ? '<p class="chg-note">…dan ' + (nRm - removed.length) + " halte lain.</p>" : "") + "</div>";
+      if (l) l.dirs.slice(0, 2).forEach(function (d) {
+        var names = d.s.map(function (q) { return q.n; });
+        html += '<div class="chg-dir"><div class="chg-dir-h">Sekarang · ' + esc(dirTitle(names)) + "<small>" + names.length + ' halte</small></div><ol class="chg-stops">' +
+          names.map(function (n) { var nw = added.indexOf(n) >= 0; return '<li class="' + (nw ? "add" : "same") + '"><i></i><span>' + esc(n) + "</span>" + (nw ? "<em>baru</em>" : "") + "</li>"; }).join("") + "</ol></div>";
+      });
+    }
+    if (l) html += '<div class="btn-row"><button class="btn-sec" id="chgOpenLine">Lihat rute ' + esc(l.code) + " di peta</button></div>";
+    var body = $("#chgBody"); body.innerHTML = html; body.scrollTop = 0;
+    $$(".chg-tabs button", body).forEach(function (t) {
+      t.addEventListener("click", function () {
+        $$(".chg-tabs button", body).forEach(function (o) { o.classList.toggle("is-on", o === t); });
+        body.dataset.view = t.dataset.v;
+      });
+    });
+    body.dataset.view = "m";
+    if ($("#chgOpenLine")) $("#chgOpenLine").addEventListener("click", function () { openLine(l, 0); });
+    sheet.hidden = false; raiseSheet(sheet);
+  }
+  /* Lembar yang baru dibuka selalu di paling atas (mis. Info rute dari Pengaturan). */
+  function raiseSheet(el) { if (el && el.parentNode && el.parentNode.lastElementChild !== el) el.parentNode.appendChild(el); }
   function renderChangesCard() {
     var el = $("#changesBanner");
     if (!el) { el = document.createElement("div"); el.id = "changesBanner"; $("#gtfsBanner").parentNode.insertBefore(el, $("#gtfsBanner").nextSibling); }
@@ -329,7 +449,7 @@
     if (!c || !c.unseen || !c.list || !c.list.length) { el.innerHTML = ""; return; }
     var e = c.list[0];
     el.innerHTML = '<div class="chg-card"><b>' + e.items.length + " rute Transjakarta berubah</b><p>Hasil pengecekan data resmi " + esc(fmtDate(e.date)) + ". Lumi sudah memakai rute terbaru.</p>" +
-      changeItems(e.items, 5) + '<div class="chg-actions"><button class="btn-sec" id="chgAll">Semua perubahan</button><button class="btn-sec" id="chgOk">Oke, mengerti</button></div></div>';
+      changeItems(e.items, 5, e.date) + '<div class="chg-actions"><button class="btn-sec" id="chgAll">Semua perubahan</button><button class="btn-sec" id="chgOk">Oke, mengerti</button></div></div>';
     bindChangeLinks(el);
     $("#chgOk").addEventListener("click", function () { try { NATIVE && NATIVE.markChangesSeen && NATIVE.markChangesSeen(); } catch (x) { } el.innerHTML = ""; });
     $("#chgAll").addEventListener("click", function () { openSettings(); setTimeout(function () { var h = $("#chgHistory"); if (h) h.scrollIntoView(); }, 50); });
@@ -340,7 +460,7 @@
       (c && c.lastDate ? " Terakhir diperiksa: " + esc(fmtDate(c.lastDate)) + "." : "") + "</p>";
     if (!c || !c.list || !c.list.length) return html + '<p style="margin:0">Belum ada perubahan tercatat sejak data pertama diunduh.</p></div>';
     c.list.slice(0, 8).forEach(function (e) {
-      html += '<div class="sub-h">' + esc(fmtDate(e.date)) + " · " + e.items.length + " perubahan</div>" + changeItems(e.items, 12);
+      html += '<div class="sub-h">' + esc(fmtDate(e.date)) + " · " + e.items.length + " perubahan</div>" + changeItems(e.items, 12, e.date);
     });
     return html + "</div>";
   }
@@ -1171,7 +1291,7 @@
   function openTrip(it) {
     colorize(it);
     S.openTrip = it;
-    var sheet = $("#sheetTrip"); sheet.hidden = false;
+    var sheet = $("#sheetTrip"); sheet.hidden = false; raiseSheet(sheet);
     $("#tripTitle").textContent = S.from.name + " ke " + S.to.name;
     if (!tripMap) { tripMap = makeMap($("#tripMap")); }
     setTimeout(function () {
@@ -1537,7 +1657,7 @@
   function openLine(line, dirIndex) {
     if (!line) return;
     S.openLineObj = line; S.lineDir = dirIndex || 0;
-    var sheet = $("#sheetLine"); sheet.hidden = false;
+    var sheet = $("#sheetLine"); sheet.hidden = false; raiseSheet(sheet);
     sheet.style.setProperty("--c", line.color);
     var fg = textColor(line.color);
     $("#lineHero").style.color = fg;
@@ -1752,7 +1872,7 @@
 
   /* ------------------------------------------------------- pengaturan */
   function openSettings() {
-    $("#sheetSettings").hidden = false;
+    $("#sheetSettings").hidden = false; raiseSheet($("#sheetSettings"));
     renderSettings();
   }
   function keyField(id, label, val, ph) {
@@ -1869,10 +1989,9 @@
     if ($("#gpsAsk")) { var w0 = gpsWait; gpsWait = null; closeGpsAsk(); if (w0) w0.reject(new Error("GPS belum aktif")); return true; }
     if (!$("#sheetTime").hidden) { $("#sheetTime").hidden = true; return true; }
     if (!$("#sheetShare").hidden) { $("#sheetShare").hidden = true; return true; }
-    if (!$("#sheetPick").hidden) { $("#sheetPick").hidden = true; return true; }
-    if (!$("#sheetSettings").hidden) { $("#sheetSettings").hidden = true; return true; }
-    if (!$("#sheetLine").hidden) { $("#sheetLine").hidden = true; return true; }
-    if (!$("#sheetTrip").hidden) { $("#sheetTrip").hidden = true; return true; }
+    // Tutup lembar yang paling atas (yang terakhir dibuka), mis. Info rute di atas Pengaturan.
+    var open = $$("#app > .sheet").filter(function (x) { return !x.hidden; });
+    if (open.length) { open[open.length - 1].hidden = true; return true; }
     if (!$("#suggest").hidden) { hideSuggest(); document.activeElement && document.activeElement.blur(); return true; }
     if (S.tab !== "plan") { setTab("plan"); return true; }
     if (!$("#results").hidden) { $("#results").hidden = true; $("#planIntro").hidden = false; renderIntro(); return true; }

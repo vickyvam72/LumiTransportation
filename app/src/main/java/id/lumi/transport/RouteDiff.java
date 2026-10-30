@@ -12,6 +12,10 @@ public class RouteDiff {
     public static class Item {
         public String kind;   // add | del | chg
         public String code, name, text;
+        public String oldName;                                   // bila nama trayek berubah
+        public List<String> added = new ArrayList<String>(), removed = new ArrayList<String>();
+        /** Urutan halte per arah sebelum & sesudah (untuk tampilan "Sebelum / Sesudah"). */
+        public Map<String, List<String>> before = new LinkedHashMap<String, List<String>>(), after = new LinkedHashMap<String, List<String>>();
     }
 
     static class Route {
@@ -62,7 +66,7 @@ public class RouteDiff {
             Route nr = e.getValue(), or = a.get(e.getKey());
             if (or == null) {
                 Item it = new Item(); it.kind = "add"; it.code = e.getKey(); it.name = nr.name;
-                it.text = "Rute baru: " + nr.name; out.add(it);
+                it.text = "Rute baru: " + nr.name; it.after.putAll(nr.main); out.add(it);
                 continue;
             }
             Set<String> oldStops = new LinkedHashSet<String>(), newStops = new LinkedHashSet<String>();
@@ -86,6 +90,9 @@ public class RouteDiff {
                 parts.add("Pola perjalanan " + (nr.patterns > or.patterns ? "bertambah" : "berkurang") + " (" + or.patterns + " → " + nr.patterns + ", mis. varian lewat tol)");
             if (!parts.isEmpty()) {
                 Item it = new Item(); it.kind = "chg"; it.code = e.getKey(); it.name = nr.name;
+                if (!nr.name.equals(or.name) && !or.name.isEmpty()) it.oldName = or.name;
+                it.added.addAll(added); it.removed.addAll(removed);
+                it.before.putAll(or.main); it.after.putAll(nr.main);
                 StringBuilder t = new StringBuilder();
                 for (int i = 0; i < parts.size(); i++) { if (i > 0) t.append(". "); t.append(parts.get(i)); }
                 it.text = t.toString(); out.add(it);
@@ -94,7 +101,7 @@ public class RouteDiff {
         for (Map.Entry<String, Route> e : a.entrySet()) {
             if (b.containsKey(e.getKey())) continue;
             Item it = new Item(); it.kind = "del"; it.code = e.getKey(); it.name = e.getValue().name;
-            it.text = "Rute tidak ada lagi di data resmi"; out.add(it);
+            it.text = "Rute tidak ada lagi di data resmi"; it.before.putAll(e.getValue().main); out.add(it);
         }
         return out;
     }
@@ -110,9 +117,44 @@ public class RouteDiff {
             sb.append(",\"code\":"); GuideTracker.esc(sb, it.code);
             sb.append(",\"name\":"); GuideTracker.esc(sb, it.name);
             sb.append(",\"text\":"); GuideTracker.esc(sb, it.text);
+            if (it.oldName != null) { sb.append(",\"on\":"); GuideTracker.esc(sb, it.oldName); }
+            if (!it.added.isEmpty()) { sb.append(",\"add\":"); arr(sb, it.added); }
+            if (!it.removed.isEmpty()) { sb.append(",\"rm\":"); arr(sb, it.removed); }
+            if (!it.before.isEmpty() || !it.after.isEmpty()) sb.append(",\"det\":1");
             sb.append('}');
         }
         return sb.append("]}").toString();
+    }
+
+    static void arr(StringBuilder sb, List<String> l) {
+        sb.append('[');
+        for (int i = 0; i < l.size(); i++) { if (i > 0) sb.append(','); GuideTracker.esc(sb, l.get(i)); }
+        sb.append(']');
+    }
+    static void dirs(StringBuilder sb, Map<String, List<String>> m) {
+        sb.append('{');
+        boolean first = true;
+        for (Map.Entry<String, List<String>> d : m.entrySet()) {
+            if (!first) sb.append(',');
+            first = false;
+            GuideTracker.esc(sb, d.getKey()); sb.append(':'); arr(sb, d.getValue());
+        }
+        sb.append('}');
+    }
+    /** Detail urutan halte sebelum/sesudah per kode rute: {"9":{"b":{"0":[..]},"a":{"0":[..]}}, ...}. */
+    public static String detailJson(List<Item> items) {
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (Item it : items) {
+            if (it.before.isEmpty() && it.after.isEmpty()) continue;
+            if (!first) sb.append(',');
+            first = false;
+            GuideTracker.esc(sb, it.code);
+            sb.append(":{\"b\":"); dirs(sb, it.before);
+            sb.append(",\"a\":"); dirs(sb, it.after);
+            sb.append('}');
+        }
+        return sb.append('}').toString();
     }
 
     public static void main(String[] x) {
@@ -122,5 +164,6 @@ public class RouteDiff {
                 "R\t7B\tKampung Rambutan - Blok M\t3\nM\t7B\t0\tA|B|C\nR\tJAK108\tKramat Jati - Bambu Apus\t2\nM\tJAK108\t0\tX|Y\n";
         for (Item it : diff(a, b)) System.out.println(it.kind + " " + it.code + ": " + it.text);
         System.out.println(toJson("2026-10-29", diff(a, b)));
+        System.out.println(detailJson(diff(a, b)));
     }
 }

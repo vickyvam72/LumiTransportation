@@ -68,6 +68,15 @@ public class RouteWatchJob extends JobService {
         } finally { c.disconnect(); }
     }
 
+    static void strs(org.json.JSONArray a, List<String> out) {
+        for (int i = 0; a != null && i < a.length(); i++) out.add(a.optString(i));
+    }
+    static void dirs(org.json.JSONObject o, java.util.Map<String, List<String>> out) {
+        if (o == null) return;
+        java.util.Iterator<String> k = o.keys();
+        while (k.hasNext()) { String d = k.next(); List<String> l = new ArrayList<String>(); strs(o.optJSONArray(d), l); out.put(d, l); }
+    }
+
     /** Tanda versi GTFS resmi tanpa mengunduh seluruh file. */
     static String gtfsSignature() {
         try {
@@ -106,9 +115,13 @@ public class RouteWatchJob extends JobService {
                             RouteDiff.Item it = new RouteDiff.Item();
                             it.kind = x.optString("k"); it.code = x.optString("code");
                             it.name = x.optString("name"); it.text = x.optString("text");
+                            if (x.has("on")) it.oldName = x.optString("on");
+                            strs(x.optJSONArray("add"), it.added); strs(x.optJSONArray("rm"), it.removed);
+                            dirs(x.optJSONObject("b"), it.before); dirs(x.optJSONObject("a"), it.after);
                             items.add(it);
                         }
                         if (!items.isEmpty()) {
+                            RouteUpdater.saveDetail(ctx, latest.optString("date"), RouteDiff.detailJson(items));
                             RouteUpdater.addHistory(ctx, RouteDiff.toJson(latest.optString("date"), items));
                             p.edit().putBoolean("unseen", true).apply();
                             RouteUpdater.notifyChanges(ctx, items);
