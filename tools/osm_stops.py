@@ -49,13 +49,15 @@ def overpass():
          'way["building"="train_station"]%s;' % bb +
          ");out center tags;")
     last = None
-    for url in OVERPASS:
+    import time
+    for url in OVERPASS * 3:                     # server Overpass kadang sibuk / membatasi: coba lagi
         try:
             req = urllib.request.Request(url, data=urllib.parse.urlencode({"data": q}).encode(), headers={"User-Agent": UA})
             return json.load(urllib.request.urlopen(req, timeout=300))["elements"]
         except Exception as ex:
             last = ex
             print("overpass gagal:", url, ex, file=sys.stderr)
+            time.sleep(45)
     raise last
 
 # Jenis kereta yang diharapkan per moda Lumi, dan cara mengenalinya di OSM.
