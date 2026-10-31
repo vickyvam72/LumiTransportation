@@ -1,4 +1,4 @@
-tanggal 2026-10-31 09:45
+tanggal 2026-10-31 09:49
 stop Lumi 11771 · cocok OSM 4288 · digeser >20 m 683 · tidak cocok 7483
 
   658 m  kereta Matraman                                 -6.20100,106.85900 -> -6.19514,106.85985 (OSM: Matraman)
