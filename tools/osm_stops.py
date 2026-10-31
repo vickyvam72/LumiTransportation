@@ -148,16 +148,20 @@ def main():
         amb = [c for c in cands[1:] if c[0] < bd + 60 and hav((best[0], best[1]), (c[1], c[2])) > 120]
         if amb: unmatched += 1; continue
         if bd > 20:
-            fix[k] = [round(best[0], 6), round(best[1], 6)]
+            # Format: nama -> [[lat asal, lon asal, lat OSM, lon OSM], ...]; aplikasi mencocokkan nama + jarak ≤80 m
+            # dari titik asal, jadi tetap berlaku bila GTFS harian sedikit berbeda.
+            e = [round(p[0], 5), round(p[1], 5), round(best[0], 6), round(best[1], 6)]
+            lst = fix.setdefault(name, [])
+            if e not in lst: lst.append(e)
             moves.append((bd, name, "kereta" if rail else "bus", p, best))
     moves.sort(reverse=True)
     now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7))).strftime("%Y-%m-%d %H:%M")
     os.makedirs(os.path.join(root, "data"), exist_ok=True)
-    json.dump({"v": 1, "date": now, "count": len(fix), "fix": fix}, open(os.path.join(root, "data/stop_fix.json"), "w", encoding="utf-8"),
+    json.dump({"v": 2, "date": now, "count": sum(len(v) for v in fix.values()), "fix": fix}, open(os.path.join(root, "data/stop_fix.json"), "w", encoding="utf-8"),
               ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(root, "data/stop_fix_report.txt"), "w", encoding="utf-8") as f:
         f.write("tanggal %s\nstop Lumi %d · cocok OSM %d · digeser >20 m %d · tidak cocok %d\n\n" %
-                (now, len(stops), len(stops) - unmatched, len(fix), unmatched))
+                (now, len(stops), len(stops) - unmatched, sum(len(v) for v in fix.values()), unmatched))
         for bd, name, jenis, p, b in moves[:120]:
             f.write("%5.0f m  %-6s %-40s %.5f,%.5f -> %.5f,%.5f (OSM: %s)\n" % (bd, jenis, name[:40], p[0], p[1], b[0], b[1], b[2]))
     print(open(os.path.join(root, "data/stop_fix_report.txt"), encoding="utf-8").read()[:3000])
