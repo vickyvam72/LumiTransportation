@@ -168,7 +168,7 @@
     window.__lumiStopFix = { date: F.date, applied: n };
   })();
   var planner = new E.Planner(DATA);
-  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; }, tripZoom: function () { return tripMap ? tripMap.getZoom() : -1; }, liveWalk: function () { return LIVEW; } };   // untuk pengujian
+  window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; }, tripZoom: function () { return tripMap ? tripMap.getZoom() : -1; }, liveWalk: function () { return LIVEW; }, dynKm: function () { return (GT.trip.dyn || []).map(function (d) { return pathKm(d.lines[1].getLatLngs().map(function (q) { return [q.lat, q.lng]; })); }); } };   // untuk pengujian
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
   var NATIVE = window.LumiNative || null;
@@ -288,7 +288,33 @@
   // dipanggil dari MainActivity.onResume (kembali dari pengaturan Lokasi)
   window.__lumiResume = function () {
     if (gpsWait && !gpsOff()) { var w = gpsWait; gpsWait = null; closeGpsAsk(); toast("GPS aktif"); w.resolve(); }
+    reviveMaps();
   };
+  /*
+   * Setelah layar mati / keluar PiP: Android bisa menghapus konteks grafis (WebGL) peta dan ukuran peta sempat 0.
+   * Ukur ulang semua peta, buat ulang lapisan peta yang konteksnya hilang, lalu gambar ulang pendampingan.
+   */
+  function glLost(m) {
+    try { var g = m._lumiTiles && m._lumiTiles.getMaplibreMap && m._lumiTiles.getMaplibreMap(); if (!g) return false; var c = g.painter && g.painter.context && g.painter.context.gl; return !c || c.isContextLost(); } catch (e) { return true; }
+  }
+  function reviveMaps() {
+    [80, 400, 1200].forEach(function (t) {
+      setTimeout(function () {
+        if (typeof allMaps === "undefined") return;
+        allMaps.forEach(function (m) {
+          try {
+            if (!m.getContainer().offsetWidth) return;
+            m.invalidateSize(false);
+            if (glLost(m)) { m.removeLayer(m._lumiTiles); m._lumiTiles = baseLayer().addTo(m); }
+            else if (m._lumiTiles && m._lumiTiles.getMaplibreMap) { var g = m._lumiTiles.getMaplibreMap(); g.resize(); g.triggerRepaint(); }
+          } catch (e) { }
+        });
+        [GT.trip, GT.pip].forEach(function (T) { T.sig = null; });
+        paintGuideMap(S.guideSt);
+      }, t);
+    });
+  }
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) reviveMaps(); });
   function locate() {
     return ensureGps().then(locateRaw);
   }
@@ -653,9 +679,10 @@
     if (E.hav(a, b) < 0.015) return;
     var pts = live ? liveFootPath(a, b) : footPath(a, b);
     var rest = pts && pts.length > 1 ? pts.concat([b]) : [b];
+    var path = pts && pts.length > 1 ? pts.concat([b]) : [a, b];
     var w = L.polyline([a].concat(rest), { color: "#fff", weight: 9, opacity: .85, dashArray: "0.1 12", lineCap: "round" }).addTo(T.layer);
     var c = L.polyline([a].concat(rest), { color: "#1A73E8", weight: 6, opacity: 1, dashArray: "0.1 12", lineCap: "round" }).addTo(T.layer);
-    if (dyn) T.dyn.push({ lines: [w, c], rest: rest });
+    if (dyn) T.dyn.push({ lines: [w, c], path: path });
   }
   var FOOTVER = 0;
   /*
@@ -671,7 +698,7 @@
     var rides = it ? it.legs.filter(function (l) { return l.type === "ride"; }) : [];
     var onBusNow = st.phase === "ride";
     var sig = [it ? 1 : 0, target ? 1 : 0, st.cursor, st.next, st.phase, LIVEW && LIVEW.pts ? LIVEW.pts.length + "@" + LIVEW.at : "-", FOOTVER,
-      onBusNow && target ? target[0].toFixed(4) + "," + target[1].toFixed(4) : "", follow ? "p" : "t"].join("|");
+      follow ? "p" : "t"].join("|");
     if (sig !== T.sig || !T.layer || !map.hasLayer(T.layer)) {
       T.sig = sig;
       if (T.layer) T.layer.remove();
@@ -696,13 +723,14 @@
         if (phase === "wait" && riding && me) walk(me, rides[startLeg].stops[startK].p, true);
         for (var li = startLeg; li < rides.length; li++) {
           var l = rides[li], k0 = li === startLeg ? startK : 0, onBus = li === startLeg && phase === "ride" && me;
-          var pts = shapeSlice(l.line, l.dirIndex, onBus ? me : l.stops[k0].p, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
+          // Di dalam bus: bentuk rute dari halte terakhir yang dilewati; dipotong per frame di posisiku (moveDyn).
+          var pts = shapeSlice(l.line, l.dirIndex, l.stops[k0].p, l.toP) || l.stops.slice(k0).map(function (x) { return x.p; });
           // Sambungkan garis tepat ke halte (bentuk rute berhenti di titik bentuk terdekat, bukan di halte).
           var rest = pts.concat([l.stops[l.stops.length - 1].p]);
           var head = onBus ? me : l.stops[k0].p;
           var w = L.polyline([head].concat(rest), { color: "#fff", weight: 9, opacity: .9 }).addTo(T.layer);
           var c = L.polyline([head].concat(rest), { color: lc(l), weight: 6 }).addTo(T.layer);
-          if (onBus) T.dyn.push({ lines: [w, c], rest: rest });
+          if (onBus) T.dyn.push({ lines: [w, c], path: [l.stops[k0].p].concat(rest) });
           for (var k = onBus ? k0 + 1 : k0; k < l.stops.length; k++) {
             var mk = L.marker(l.stops[k].p, { icon: dotIcon("lm-stop", lc(l)) }).addTo(T.layer);
             if (!follow && (k === k0 || k === l.stops.length - 1)) mk.bindTooltip(l.stops[k].n, { className: "lm-tip", direction: "top", offset: [0, -6] });
@@ -712,6 +740,7 @@
         if (S.to && S.to.p) L.marker(S.to.p, { icon: dotIcon("lm-dest") }).addTo(T.layer);
       }
     }
+    if (T.pos) moveDyn(T, T.pos);
     // Titik posisiku: satu penanda tetap di lapisan sendiri.
     if (target) {
       if (!T.me || !map.hasLayer(T.me)) { T.me = L.marker(T.pos || target, { icon: meIcon(), zIndexOffset: 1000, interactive: false }).addTo(map); }
@@ -733,8 +762,35 @@
     }
     glide(T, target);
   }
+  /*
+   * Garis yang berawal dari posisiku dipotong tiap frame: posisiku diproyeksikan ke rute, bagian di belakang
+   * titik proyeksi dibuang. Mendekat → garis memendek, menjauh → garis (dari posisiku ke rute) memanjang.
+   */
+  function projOn(p, a, b) {
+    var k = Math.cos(p[0] * Math.PI / 180);
+    var ax = a[1] * k, ay = a[0], bx = b[1] * k, by = b[0], px = p[1] * k, py = p[0];
+    var dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+    var t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
+    var q = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    return { q: q, d: E.hav(p, q), t: t };
+  }
   function moveDyn(T, p) {
-    (T.dyn || []).forEach(function (d) { var ll = [p].concat(d.rest); d.lines.forEach(function (x) { x.setLatLngs(ll); }); });
+    (T.dyn || []).forEach(function (d) {
+      var path = d.path, best = null, bj = 0;
+      if (path.length < 2) { d.lines.forEach(function (x) { x.setLatLngs([p].concat(path)); }); return; }
+      // Cari segmen terdekat; utamakan sekitar posisi sebelumnya (tidak melompat ke bagian rute lain yang kebetulan dekat).
+      var from = Math.max(0, (d.j || 0) - 4), to = path.length - 1;
+      for (var j = from; j < to; j++) {
+        var r = projOn(p, path[j], path[j + 1]);
+        if (!best || r.d < best.d - 0.002) { best = r; bj = j; }
+      }
+      if (d.j && best.d > 0.08) {               // jauh dari rute di sekitar posisi lama → cari di seluruh rute
+        for (j = 0; j < to; j++) { var r2 = projOn(p, path[j], path[j + 1]); if (r2.d < best.d) { best = r2; bj = j; } }
+      }
+      d.j = bj;
+      var ll = [p, best.q].concat(path.slice(bj + 1));
+      d.lines.forEach(function (x) { x.setLatLngs(ll); });
+    });
   }
   /* Animasi halus dari posisi tampilan sekarang ke posisi GPS terbaru (durasi ≈ jeda antar-GPS). */
   function glide(T, target) {
@@ -751,7 +807,7 @@
       if (T.me) T.me.setLatLng(T.pos);
       moveDyn(T, T.pos);
       var map = T.map;
-      if (map && (T.followMode || T.follow)) { T.prog = true; map.setView(T.pos, map.getZoom(), { animate: false }); T.prog = false; }
+      if (map && (T.followMode || T.follow) && map.getContainer().offsetWidth) { T.prog = true; map.setView(T.pos, map.getZoom(), { animate: false }); T.prog = false; }
       if (f >= 1) { T.anim = null; T.raf = 0; return; }
       T.raf = requestAnimationFrame(step);
     });
@@ -824,7 +880,8 @@
     try { m.remove(); } catch (e) { }
   }
   function refitMaps() {
-    allMaps.forEach(function (m) { try { m.invalidateSize(false); } catch (e) { } });
+    // Peta yang sedang tersembunyi (mis. peta perjalanan saat PiP) jangan diukur: ukurannya 0 dan merusak tampilan.
+    allMaps.forEach(function (m) { try { if (m.getContainer().offsetWidth) m.invalidateSize(false); } catch (e) { } });
     paintGuideMap(S.guideSt);
   }
   window.__lumiPip = function (on) {
@@ -839,6 +896,7 @@
     }
     // Ukuran jendela berubah bertahap saat masuk/keluar PiP: ukur ulang semua peta beberapa kali.
     [60, 250, 600, 1200].forEach(function (t) { setTimeout(refitMaps, t); });
+    if (!on) reviveMaps();
   };
   var rsT;
   window.addEventListener("resize", function () { clearTimeout(rsT); rsT = setTimeout(refitMaps, 120); });
