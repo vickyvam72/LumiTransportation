@@ -60,7 +60,8 @@ def overpass():
 
 def kind_of(t):
     rail = t.get("railway") in ("station", "halt", "platform") or t.get("train") == "yes" or t.get("subway") == "yes" \
-        or t.get("light_rail") == "yes" or t.get("building") == "train_station" or t.get("station") in ("subway", "light_rail", "train")
+        or t.get("light_rail") == "yes" or t.get("monorail") == "yes" or t.get("building") == "train_station" \
+        or t.get("station") in ("subway", "light_rail", "train")
     bus = t.get("highway") == "bus_stop" or t.get("bus") == "yes" or t.get("amenity") == "bus_station" \
         or "transjakarta" in (t.get("network", "") + t.get("operator", "") + t.get("name", "")).lower()
     if rail and not bus: return "rail"
@@ -100,7 +101,8 @@ def main():
         lon = e.get("lon") or (e.get("center") or {}).get("lon")
         if lat is None: continue
         names = set()
-        for k in ("name", "name:id", "alt_name", "official_name", "short_name", "old_name"):
+        # Hanya nama utama (nama lama/alternatif sering milik halte lain atau sebelum ganti nama).
+        for k in ("name", "name:id"):
             for v in str(t.get(k, "")).split(";"):
                 if v.strip(): names.add(norm(v))
         kd = kind_of(t)
@@ -111,13 +113,20 @@ def main():
     for k, (name, p, rail) in stops.items():
         keys = [norm(name)] + ALIAS.get(norm(name), [])
         best, bd = None, None
-        lim = 900 if rail else 450
+        lim = 900 if rail else 250
+        want = "rail" if rail else "bus"
+        cands = []
         for nk in keys:
             for (lat, lon, kd, oname) in idx.get(nk, []):
-                if kd == ("bus" if rail else "rail"): continue
+                if kd != want: continue                      # jenis harus sama persis (bukan "any")
                 d = hav(p, (lat, lon))
-                if d <= lim and (bd is None or d < bd): best, bd = (lat, lon, oname), d
-        if best is None: unmatched += 1; continue
+                if d <= lim: cands.append((d, lat, lon, oname))
+        if not cands: unmatched += 1; continue
+        cands.sort()
+        bd, best = cands[0][0], cands[0][1:]
+        # Ambigu: ada fitur senama lain yang hampir sama dekat tapi letaknya berjauhan → jangan digeser.
+        amb = [c for c in cands[1:] if c[0] < bd + 60 and hav((best[0], best[1]), (c[1], c[2])) > 120]
+        if amb: unmatched += 1; continue
         if bd > 20:
             fix[k] = [round(best[0], 6), round(best[1], 6)]
             moves.append((bd, name, "kereta" if rail else "bus", p, best))
