@@ -58,6 +58,16 @@ def overpass():
             print("overpass gagal:", url, ex, file=sys.stderr)
     raise last
 
+# Jenis kereta yang diharapkan per moda Lumi, dan cara mengenalinya di OSM.
+RAIL_WANT = {"KRL": "train", "KABANDARA": "train", "WHOOSH": "train", "MRT": "subway", "LRT": "light_rail", "LRTJ": "light_rail"}
+def rail_types(t):
+    out = set()
+    st, net = t.get("station", ""), (t.get("network", "") + " " + t.get("operator", "") + " " + t.get("name", "")).lower()
+    if t.get("subway") == "yes" or st == "subway" or "mrt" in net: out.add("subway")
+    if t.get("light_rail") == "yes" or st == "light_rail" or "lrt" in net: out.add("light_rail")
+    if t.get("train") == "yes" or st == "train" or "krl" in net or "commuter" in net or "kai" in net or "kcic" in net: out.add("train")
+    return out
+
 def kind_of(t):
     rail = t.get("railway") in ("station", "halt", "platform") or t.get("train") == "yes" or t.get("subway") == "yes" \
         or t.get("light_rail") == "yes" or t.get("monorail") == "yes" or t.get("building") == "train_station" \
@@ -76,14 +86,14 @@ def load_lumi(path):
 def main():
     root = sys.argv[1] if len(sys.argv) > 1 else "."
     data = load_lumi(os.path.join(root, "app/src/main/assets/www/js/data.js"))
-    stops = {}   # key -> (name, p, rail)
-    def add(name, p, rail):
+    stops = {}   # key -> (name, p, rail, jenis kereta yang diharapkan)
+    def add(name, p, rail, want=None):
         k = "%s|%.4f,%.4f" % (name, p[0], p[1])
-        stops[k] = (name, p, rail)
+        stops[k] = (name, p, rail, want)
     for l in data["lines"]:
         rail = l.get("mode") in RAIL_MODES
         for d in l.get("dirs", []):
-            for st in d.get("s", []): add(st["n"], st["p"], rail)
+            for st in d.get("s", []): add(st["n"], st["p"], rail, RAIL_WANT.get(l.get("mode")))
     gpath = os.path.join(root, "tj_gtfs.json")
     if os.path.exists(gpath):
         g = json.load(open(gpath, encoding="utf-8"))
@@ -106,21 +116,31 @@ def main():
             for v in str(t.get(k, "")).split(";"):
                 if v.strip(): names.add(norm(v))
         kd = kind_of(t)
+        rt = rail_types(t) if kd == "rail" else set()
         for n in names:
-            if n: idx.setdefault(n, []).append((lat, lon, kd, t.get("name", "")))
+            if n: idx.setdefault(n, []).append((lat, lon, kd, t.get("name", ""), rt))
 
     fix, moves, unmatched = {}, [], 0
-    for k, (name, p, rail) in stops.items():
+    for k, (name, p, rail, rwant) in stops.items():
         keys = [norm(name)] + ALIAS.get(norm(name), [])
         best, bd = None, None
         lim = 900 if rail else 250
         want = "rail" if rail else "bus"
         cands = []
         for nk in keys:
-            for (lat, lon, kd, oname) in idx.get(nk, []):
+            for (lat, lon, kd, oname, rt) in idx.get(nk, []):
                 if kd != want: continue                      # jenis harus sama persis (bukan "any")
                 d = hav(p, (lat, lon))
-                if d <= lim: cands.append((d, lat, lon, oname))
+                if d <= lim: cands.append((d, lat, lon, oname, rt))
+        if rail and rwant:
+            # Stasiun: utamakan jenis yang sama (MRT ↔ subway, LRT ↔ light_rail, KRL ↔ train);
+            # fitur tanpa keterangan jenis hanya dipakai bila tidak ada yang cocok jenisnya.
+            same = [c for c in cands if rwant in c[4]]
+            other = [c for c in cands if c[4] and rwant not in c[4]]
+            generic = [c for c in cands if not c[4]]
+            cands = same or generic
+            if not same and other: cands = [c for c in generic if all(hav((c[1], c[2]), (o[1], o[2])) > 150 for o in other)]
+        cands = [c[:4] for c in cands]
         if not cands: unmatched += 1; continue
         cands.sort()
         bd, best = cands[0][0], cands[0][1:]
