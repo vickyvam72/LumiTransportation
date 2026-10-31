@@ -241,6 +241,7 @@ Fares are estimates based on published rules (see [Fares used](#-fares-used)). P
 |---|---|
 | App | **Java** (plain Android SDK, no extra libraries) + **WebView** |
 | UI | Plain HTML, CSS and JavaScript, Plus Jakarta Sans font |
+| Stop & station positions | Official Transjakarta GTFS, aligned weekly with **OpenStreetMap** (`tools/osm_stops.py`, Overpass API) |
 | Maps | **Leaflet** + **MapLibre GL** (maplibre-gl-leaflet) with **OpenFreeMap** vector tiles (OpenStreetMap); standard OSM tiles as fallback |
 | Routing | Multimodal graph + Dijkstra + combination search (`engine.js`), offline |
 | Route data | Official Transjakarta GTFS (processed on the phone by `GtfsImporter.java`) |

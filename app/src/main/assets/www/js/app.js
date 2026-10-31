@@ -144,6 +144,29 @@
     var n = 0; lines.forEach(function (l) { if (/^GTFS resmi/.test(String(l.note).replace("Halte: ", ""))) n++; });
     ROUTE_SRC = { kind: "gtfs", date: g.date, count: g.lines.length };
   })();
+  /*
+   * Titik halte/stasiun diselaraskan dengan OpenStreetMap (peta yang kamu lihat). Berlaku untuk data bawaan
+   * maupun GTFS resmi yang diunduh harian: dicocokkan per nama + jarak ≤80 m dari titik asal.
+   * Daftar terbaru diambil dari GitHub (diperbarui tiap minggu) dan dipakai sejak aplikasi dibuka berikutnya.
+   */
+  (function applyStopFix() {
+    var F = window.LUMI_STOPFIX;
+    try { var c = JSON.parse(localStorage.getItem("lumi:stopfix") || "null"); if (c && c.fix && (!F || c.date > F.date)) F = c; } catch (e) { }
+    if (!F || !F.fix || F.v !== 2) return;
+    var n = 0;
+    DATA.lines.forEach(function (l) {
+      (l.dirs || []).forEach(function (d) {
+        (d.s || []).forEach(function (st) {
+          var arr = F.fix[st.n]; if (!arr) return;
+          for (var i = 0; i < arr.length; i++) {
+            var e = arr[i];
+            if (E.hav([e[0], e[1]], st.p) <= 0.08) { st.p = [e[2], e[3]]; n++; break; }
+          }
+        });
+      });
+    });
+    window.__lumiStopFix = { date: F.date, applied: n };
+  })();
   var planner = new E.Planner(DATA);
   window.__lumiDebug = { planner: planner, data: DATA, src: function () { return ROUTE_SRC; }, tripZoom: function () { return tripMap ? tripMap.getZoom() : -1; }, liveWalk: function () { return LIVEW; } };   // untuk pengujian
   var $ = function (s, r) { return (r || document).querySelector(s); };
@@ -2009,6 +2032,18 @@
     $$("[data-del]", $("#settingsBody")).forEach(function (b) { b.addEventListener("click", function () { deletePlace(+b.dataset.del); renderSettings(); }); });
   }
   $("#btnSettings").addEventListener("click", openSettings);
+
+  /* Perbarui daftar koreksi titik halte/stasiun (OpenStreetMap) dari GitHub, paling sering tiap 3 hari. */
+  (function refreshStopFix() {
+    var last = 0; try { last = +localStorage.getItem("lumi:stopfixAt") || 0; } catch (e) { }
+    if (Date.now() - last < 3 * 864e5) return;
+    setTimeout(function () {
+      http("https://raw.githubusercontent.com/vickyvam72/LumiTransportation/main/data/stop_fix.json", 20000).then(function (j) {
+        try { localStorage.setItem("lumi:stopfixAt", String(Date.now())); } catch (e) { }
+        if (j && j.v === 2 && j.fix) { try { localStorage.setItem("lumi:stopfix", JSON.stringify(j)); } catch (e) { } }
+      }).catch(function () { });
+    }, 8000);
+  })();
 
   /* ------------------------------------------------------- lokasi dibagikan dari Google Maps */
   window.lumiShared = function (text) {

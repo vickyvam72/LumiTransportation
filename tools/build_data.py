@@ -191,7 +191,7 @@ HOURS = {
     "KRL": ([[240, 1440]], "±04.00–24.00 (kereta terakhir ±23.30)"),
     "MRT": ([[300, 1440]], "05.00–24.00. Jam sibuk tiap 5 menit, di luar itu tiap 10 menit."),
     "LRT": ([[330, 1460]], "05.30–00.20 (masa uji coba umum fase 1B)"),
-    "LRTJ": ([[300, 1383]], "±05.00–23.00 (keberangkatan terakhir Dukuh Atas ±23.02)"),
+    "LRTJ": ([[330, 1380]], "Sen–Jum 05.30–23.00 · Sabtu 05.45–23.00 · Minggu/libur 06.00–22.30"),
     "KABANDARA": ([[300, 1380]], "±05.00–23.00 (dari bandara 05.57–22.57, tiap 30–60 menit)"),
     "WHOOSH": ([[360, 1290]], "±06.00–21.30 (cek jadwal KCIC)"),
 }
@@ -274,10 +274,16 @@ def add_manual_variants(line):
             break
 
 
+# Jam yang berbeda per hari (0 = Minggu, 6 = Sabtu); hari lain memakai HOURS.
+HOURS_DOW = {"LRTJ": {"6": [[345, 1380]], "0": [[360, 1350]]}}
+
+
 def with_hours(line, key):
     h, txt = HOURS[key]
     line["hours"] = h
     line["hoursText"] = txt
+    if key in HOURS_DOW:
+        line["hoursDow"] = HOURS_DOW[key]
     return line
 
 

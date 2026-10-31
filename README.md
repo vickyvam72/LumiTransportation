@@ -270,6 +270,7 @@ Tarif adalah perkiraan berdasarkan aturan yang diumumkan (lihat [Tarif yang dipa
 |---|---|
 | Aplikasi | **Java** (Android SDK, tanpa library tambahan) + **WebView** |
 | Antarmuka | HTML, CSS, JavaScript murni, font Plus Jakarta Sans |
+| Titik halte & stasiun | GTFS resmi Transjakarta, diselaraskan dengan **OpenStreetMap** tiap minggu (`tools/osm_stops.py`, Overpass API) |
 | Peta | **Leaflet** + **MapLibre GL** (maplibre-gl-leaflet) dengan ubin vektor **OpenFreeMap** (OpenStreetMap); cadangan ubin OSM standar |
 | Mesin rute | Graf multimoda + Dijkstra + enumerasi kombinasi (`engine.js`), berjalan offline |
 | Data rute | GTFS resmi Transjakarta (diproses di HP oleh `GtfsImporter.java`) |

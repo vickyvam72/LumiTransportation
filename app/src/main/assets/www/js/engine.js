@@ -42,11 +42,18 @@
 
   /* ------------------------------------------------- jam operasional */
   function isNight(m) { m = ((m % 1440) + 1440) % 1440; return m >= 1320 || m < 300; }
+  // Hari yang sedang direncanakan (0 = Minggu); dipakai untuk jam operasional yang berbeda per hari (mis. LRT Jabodebek).
+  var PLAN_DOW = null;
+  function hoursOf(line) {
+    var hd = line.hoursDow;
+    return hd && PLAN_DOW != null && hd[PLAN_DOW] ? hd[PLAN_DOW] : line.hours;
+  }
   function openAt(line, m) {
-    if (!line.hours) return true;
+    var hs = hoursOf(line);
+    if (!hs) return true;
     m = ((Math.round(m) % 1440) + 1440) % 1440;
-    for (var i = 0; i < line.hours.length; i++) {
-      var a = line.hours[i][0], b = line.hours[i][1];
+    for (var i = 0; i < hs.length; i++) {
+      var a = hs[i][0], b = hs[i][1];
       if (m >= a && m < b) return true;
       if (b > 1440 && m < b - 1440) return true;
     }
@@ -477,6 +484,7 @@
   Planner.prototype.plan = function (from, to, roadKm, depMin, dow) {
     var self = this;
     this.dow = dow == null ? new Date().getDay() : dow;   // hari (0 = Minggu) untuk tarif yang bergantung hari
+    PLAN_DOW = this.dow;
     if (depMin == null) depMin = nowMin();
     var directKm = hav(from, to);
     var results = [];
@@ -570,7 +578,9 @@
     }
     motor.tags = ["Ojol motor"]; car.tags = ["Ojol mobil"];
     // Rute transit yang jauh lebih lama dari ojol (mis. tengah malam) tidak masuk akal ditawarkan.
-    results = results.filter(function (r) { return r.transfers <= 3 && r.min <= Math.max(motor.min * 3, motor.min + 60); });
+    // Buang hanya yang benar-benar tidak masuk akal dibanding ojol. Malam hari bus AMARI datang tiap 20–40 menit,
+    // jadi perjalanan bisa jauh lebih lama dari ojol tapi tetap pilihan murah yang sah (mis. TJ 9 pukul 22.30).
+    results = results.filter(function (r) { return r.transfers <= 3 && r.min <= Math.max(motor.min * 5, motor.min + 120); });
     function hasOjol(r) { return r.legs.some(function (l) { return l.type === "ojol"; }); }
     // Urutan: angkutan umum murni dulu (urut waktu), lalu kombinasi ojol + angkutan umum.
     // Urutan memperhitungkan jalan kaki: tiap 1 km jalan kaki di atas 600 m dianggap "+8 menit"
